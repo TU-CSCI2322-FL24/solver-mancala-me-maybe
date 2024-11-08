@@ -1,1 +1,2 @@
-data Something = Some Integer | Thing String
+Data Spaces = Stores [Space] Stones Player | Pit Stones
+
