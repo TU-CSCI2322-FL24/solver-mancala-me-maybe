@@ -1,1 +1,1 @@
-data Something = Some Integer
+data Spaces = Stores [Space] Stones Player | Pit Stones 
