@@ -1,1 +1,2 @@
-data Spaces = Stores [Space] Stones Player | Pit Stones 
+Data Spaces = Stores [Space] Stones Player | Pit Stones
+
