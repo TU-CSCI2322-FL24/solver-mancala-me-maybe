@@ -1,1 +1,1 @@
-data Something = Some Integer
+data Something = Some Integer | Thing String
