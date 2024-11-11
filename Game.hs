@@ -14,7 +14,7 @@ defaultBoard :: Int -> Board
 defaultBoard k = (makeRow 1 k, makeRow 2 k)
 
 move :: Player -> Board -> Int -> Board
-move player (one,two) pit
+move player (one, two) pit
     | location > length one = error "Put "
     where location = pit + 1
 
