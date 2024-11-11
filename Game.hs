@@ -29,4 +29,4 @@ makeMove player (one, two) pit st =
                                       aux [(Store pl st)] n = (Store pl (st + 1)):[] 
                                       aux ((Pit pos st):xs) n = if n == 0 then ((Pit pos st):xs) else if pos == pit then ((Pit pos 0):(aux xs n)) else if pos < pit then ((Pit pos (st + 1)):(aux xs (n - 1))) else ((Pit pos st):(aux xs n)) 
                                  in if (pit - st) < 0 then if player == one then makeMove two ((aux one st), two) size ((-(pit - st))) else makeMove one (one, (aux two st)) size (-(pit - st)) else if player == one then ((aux one st), two) else (one, (aux two st))                                                                 
-                              
+                             
