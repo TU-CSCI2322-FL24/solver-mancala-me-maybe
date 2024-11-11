@@ -1,16 +1,25 @@
-data Divets = Store Player Stones | Pit Stones deriving Show
-
+-- story one
 type Stones = Int
 type Player = Int
-type Board  = [Divets]
+data Divets = Store Player Stones | Pit Stones deriving Show
 
-makeBoard :: Player -> Int -> Board
-makeBoard player k = (Store player 0):[Pit 4 | _ <- [1..k]]
+type Row  = [Divets]
+type Board = (Row, Row)
+type Game = Board -- will proboably need to include more than just the board
 
-defaultBoard :: Int -> (Board,Board)
-defaultBoard k = (makeBoard 1 k, makeBoard 2 k)
+makeRow :: Player -> Int -> Row
+makeRow player k = Store player 0:[Pit 4 | _ <- [1..k]]
 
-move :: Player -> (Board, Board) -> Int -> (Board,Board)
-move player (one,two) pit =
-    | location > (length one) = error "Put "
-    where loaction = pit + 1
+defaultBoard :: Int -> Board
+defaultBoard k = (makeRow 1 k, makeRow 2 k)
+
+move :: Player -> Board -> Int -> Board
+move player (one, two) pit
+    | location > length one = error "Put "
+    where location = pit + 1
+
+-- story two
+type Winner = Player
+
+win :: Game -> Winner
+win game = undefined
