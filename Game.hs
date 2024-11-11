@@ -1,32 +1,44 @@
 import Debug.Trace
 
-data Divets = Store Player Stones | Pit Pos Stones deriving (Show, Eq)
-
-type Stones = Int
-type Player = Int
+-- story one
 type Pos = Int
-type Board  = ([Divets],[Divets])
+type Player = Int
+type Stones = Int
+
+data Divet = Store Player Stones | Pit Pos Stones deriving (Show, Eq)
+type Row = [Divet]
+type Board  = (Row, Row)
 
 makeBoard :: Int -> Board
 makeBoard k = 
-            let aux (x,y) 0 = (x,y) 
-                aux (x,y) n = 
-                            let pos = (k - n) + 1
-                            in aux (((Pit pos 4):x), ((Pit pos 4):y)) (n - 1) 
-            in aux ([Store 1 0], [Store 2 0]) k 
+    let aux (x, y) 0 = (x, y) 
+        aux (x, y) n = aux (((Pit pos 4):x), ((Pit pos 4):y)) (n - 1)
+            where pos = (k - n) + 1
+    in aux ([Store 1 0], [Store 2 0]) k 
 
-                                                   
+move :: Player -> Board -> Int -> Board
 move player (one, two) pit = 
-                           let side = case player of 
-                                      1 -> one 
-                                      2 -> two 
-                               aux [(Store pl st)] = error "Pit does not exist"
-                               aux ((Pit ps st):xs) = if ps == pit then st else aux xs
-                           in makeMove side (one, two) pit (aux side) 
+    let aux [(Store pl st)] = error "Pit does not exist"
+        aux ((Pit ps st):xs) = if ps == pit then st else aux xs
+        side = case player of
+            1 -> one
+            2 -> two
+    in makeMove player (one, two) pit (aux side)
 
-makeMove player (one, two) pit st = 
-                                  let size = length one
-                                      aux [(Store pl st)] n = (Store pl (st + 1)):[] 
-                                      aux ((Pit pos st):xs) n = if n == 0 then ((Pit pos st):xs) else if pos == pit then ((Pit pos 0):(aux xs n)) else if pos < pit then ((Pit pos (st + 1)):(aux xs (n - 1))) else ((Pit pos st):(aux xs n)) 
-                                 in if (pit - st) < 0 then if player == one then makeMove two ((aux one st), two) size ((-(pit - st))) else makeMove one (one, (aux two st)) size (-(pit - st)) else if player == one then ((aux one st), two) else (one, (aux two st))                                                                 
-                             
+makeMove :: Player -> Board -> Int -> Int -> Board
+makeMove 1 (one, two) pit st
+    | pit - st < 0  = makeMove 2 ((makeMove' one pit st), two) size (st - pit)
+    | otherwise     = (makeMove' one pit st, two)
+    where size = length one
+makeMove 2 (one, two) pit st
+    | pit - st < 0  = makeMove 1 (one, (makeMove' two pit st)) size (st - pit)
+    | otherwise     = (one, makeMove' two pit st)
+    where size = length one
+
+makeMove' :: Row -> Int -> Int -> Row
+makeMove' [Store pl st] pit n = [Store pl (st + 1)]
+makeMove' ((Pit pos st):xs) pit 0 = ((Pit pos st):xs)
+makeMove' ((Pit pos st):xs) pit n
+    | pos == pit    = (Pit pos 0):(makeMove' xs pit n)
+    | pos < pit     = (Pit pos (st + 1)):(makeMove' xs pit (n - 1))
+    | otherwise     = (Pit pos st):(makeMove' xs pit n)
