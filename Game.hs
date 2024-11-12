@@ -42,3 +42,20 @@ makeMove' ((Pit pos st):xs) pit n
     | pos == pit    = (Pit pos 0):(makeMove' xs pit n)
     | pos < pit     = (Pit pos (st + 1)):(makeMove' xs pit (n - 1))
     | otherwise     = (Pit pos st):(makeMove' xs pit n)
+
+-- story two
+type Game = Board
+
+hasGameEnded :: Game -> Bool
+hasGameEnded (one, two)
+    | all (\(Pit _ s) -> s == 0) (init one)    = True
+    | all (\(Pit _ s) -> s == 0) (init two)    = True
+    | otherwise                                 = False
+
+win :: Game -> Maybe Player
+win (one, two)
+    | s1 > s2       = Just 1
+    | s2 > s1       = Just 2
+    | otherwise     = Nothing
+    where (Store p1 s1) = last one
+          (Store p2 s2) = last two
