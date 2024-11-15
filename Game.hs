@@ -3,83 +3,114 @@ import Data.Maybe
 
 -- story one
 type Position = Int
+type Stones = Int
 data Player = PlayerOne | PlayerTwo deriving (Show, Eq)
-type Row = ([Int], Int) -- should be changed to "type Row = ([Pit], Store)" where Divet has been removed
+type Row = (Int, [Int]) -- should be changed to "type Row = ([Pit], Store)" where Divet has been removed
 type Board  = (Row, Row)
 
 type Game = (Player, Board)
 
-makeBoard :: Int -> Board
-makeBoard k =
-    let pits = [0 | _ <- 0..k]
-    in ((pits, 0),(pits, 0))
+makeGame :: Int -> Game
+makeGame k =
+    let pits = [4 | _ <- [1..k]]
+    in (PlayerOne,((0, pits),(0, pits)))
 
-move :: Game -> Position -> Board
-move (player, board) pit =
-    let stones = getStones (player,board) pit
-    in if isJust stones then  makeMove player board pit stones
-    else error = "Invalid pit selected"
+move :: Game -> Position -> Game
+move game@(p,board) pit =
+    let stones = getStones game pit
+    in if isJust stones then movePieces ((p, pickUp game pit), fromJust stones) p (pit + 1)
+    else error "Invalid pit selected"
+
+pickUp :: Game -> Position -> Board
+pickUp (PlayerOne, ((s,one), two)) pit =
+    let (begin,(_:end)) = splitAt pit one
+        newRow = begin ++ [0] ++ end
+    in ((s,newRow),two)
+pickUp (PlayerTwo, (one, (s,two))) pit =
+    let (begin,(_:end)) = splitAt pit two
+        newRow = begin ++ [0] ++ end
+    in (one,(s,newRow))
+
+movePieces :: (Game,Stones) -> Player -> Position -> Game
+movePieces (game@(playersTurn,(one,two)), stones) playersSide pos
+    | stones <= 0 = (otherPlayer playersTurn, (one, two))
+    | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
+    | otherwise = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
+
+getCorrect :: Game -> Stones -> Position -> (Game,Int)
+getCorrect (PlayerOne,((store,pits),two)) stones pos =
+    let (newPits,remain)     = sowStones pits pos stones
+        (left, newStore)     = if remain > 0 then (remain - 1, store + 1) else (remain,store)
+    in ((PlayerOne,((newStore,newPits),two)),left)
+getCorrect (PlayerTwo,(one,(store,pits))) stones pos =
+    let (newPits,remain)     = sowStones pits pos stones
+        (left, newStore)     = if remain > 0 then (remain - 1, store + 1) else (remain,store)
+    in ((PlayerTwo,(one,(newStore, newPits))), left)
+
+getIncorrect :: Game -> Stones -> Position -> (Game, Int)
+getIncorrect (PlayerOne,(one,(store,pits))) stones pos =
+    let (newPits,remain) = sowStones pits pos stones
+        newBoard = (one,(store,newPits))
+    in ((PlayerOne,newBoard),remain)
+getIncorrect (PlayerTwo,((store,pits),two)) stones pos =
+    let (newPits,remain) = sowStones pits pos stones
+        newBoard = ((store,newPits),two)
+    in ((PlayerTwo,newBoard), remain)
+
 
 getStones :: Game -> Position -> Maybe Int
 getStones (player, (one,two)) pit =
-    let side = sideOf player (one,two)
-        val  = safeBangBang (zip side [1..]) pit
-    in if val == 0 then nothing else Just val
+    let (_,side) = sideOf player (one,two)
+        val  = safeBangBang (zip side [0..]) pit
+    in if val == 0 then Nothing else Just val
 
 safeBangBang :: [(Int,Int)] -> Int -> Int
 safeBangBang [] _ = 0
 safeBangBang ((val,pos):xs) pit = if pos == pit then val else safeBangBang xs pit
 
-sideOf :: Player -> Board -> Row
-sideOf PlayerOne board = fst board
-sideOf PlayerTwo board = snd board
+otherSide :: Player -> Board -> Row
+otherSide PlayerOne (_,board) = board
+otherSide PlayerTwo (board,_) = board
 
-makeMove :: Player -> Board -> Int -> Int -> Board
-makeMove PlayerOne (one, two) pit st
-    | pit - st < 0  = makeMove PlayerTwo ((sowRow one pit st), two) size (st - pit)
-    | otherwise     = ((sowRow one pit st), two)
-    where size = length one
-makeMove PlayerTwo (one, two) pit st
-    | pit - st < 0  = makeMove PlayerOne (one, (sowRow two pit st)) size (st - pit)
-    | otherwise     = (one, (sowRow two pit st))
-    where size = length one
+sideOf :: Player -> Board -> Row
+sideOf PlayerOne (board,_) = board
+sideOf PlayerTwo (_,board) = board
 
 --Useful when we know that all pits will get a piece
-sowAll :: Row -> Row
-sowAll (_,s) = map (\a -> a + 1) s
+sowAll :: [Stones] -> [Stones]
+sowAll s = map (\a -> a + 1) s
+
+sowSome :: [Stones] -> Int -> [Stones]
+sowSome pits num = [if y <= num then x + 1 else x | (x,y) <- (zip pits [1..])]
 
 --returns new row and remaining pieces
-moveCorrectSide :: Row -> Position -> Int -> (Row,Int)
-moveCorrectSide (_ , pits) 0 stones =
-    let 
-        remaining      = stones - after
-moveCorrectSide (_ , pits) pos stones =
+sowStones :: [Stones] -> Position -> Stones -> ([Stones],Int)
+sowStones pits 0 stones =
+    let remaining      = stones - (length pits)
+        val            = if remaining >= 0 then sowAll pits else sowSome pits stones
+    in (val, remaining)
+sowStones pits pos stones =
     let (before,after) = splitAt pos pits
-        remaining      = stones - after
-        vals           = if remaining >
+        remaining      = stones - (length after)
+        val            = if remaining >= 0 then sowAll after else sowSome after stones
+        in (before ++ val, remaining)
 
-sowRow :: Row -> Int -> Int -> Row
-sowRow (store,[]) pit n = 
-sowRow (store, (p:ps)) pit 0 = ((Pit pos st):xs)
-sowRow ((Pit pos st):xs) pit n
-    | pos == pit    = (Pit pos 0):(sowRow xs pit n)
-    | pos < pit     = (Pit pos (st + 1)):(sowRow xs pit (n - 1))
-    | otherwise     = (Pit pos st):(sowRow xs pit n)
+otherPlayer :: Player -> Player
+otherPlayer PlayerOne = PlayerTwo
+otherPlayer PlayerTwo = PlayerOne
 
 -- story two
-data GameState = Ongoing | Win Player | Tie
+data GameState = Ongoing | Win Player | Tie deriving Show
 
 hasGameEnded :: Game -> Bool
-hasGameEnded (_, (one, two))
-    | all (\(Pit _ s) -> s == 0) (init one)     = True
-    | all (\(Pit _ s) -> s == 0) (init two)     = True
-    | otherwise                                 = False
+hasGameEnded (_, ((_,one), (_,two)))
+    | all (\s -> s == 0) one     = True
+    | all (\s -> s == 0) two     = True
+    | otherwise                  = False
 
 currGameState :: Game -> GameState
-currGameState state@(_, (one, two))
+currGameState state@(_, ((s1,_), (s2,_)))
     | not (hasGameEnded state)      = Ongoing
     | s1 > s2                       = Win PlayerOne
     | s2 > s1                       = Win PlayerTwo
     | otherwise                     = Tie
-    where (Store s1) = last one
-          (Store s2) = last two
