@@ -1,11 +1,14 @@
+module Game where
+
 import Debug.Trace
 import Data.Maybe
 
 -- story one
 type Position = Int
 type Stones = Int
+
 data Player = PlayerOne | PlayerTwo deriving (Show, Eq)
-type Row = (Int, [Int]) -- should be changed to "type Row = ([Pit], Store)" where Divet has been removed
+type Row = (Int, [Int])
 type Board  = (Row, Row)
 
 type Game = (Player, Board)
@@ -15,11 +18,12 @@ makeGame k =
     let pits = [4 | _ <- [1..k]]
     in (PlayerOne,((0, pits),(0, pits)))
 
-move :: Game -> Position -> Game
+move :: Game -> Position -> Maybe Game
 move game@(p,board) pit =
     let stones = getStones game pit
-    in if isJust stones then movePieces ((p, pickUp game pit), fromJust stones) p (pit + 1)
-    else error "Invalid pit selected"
+    in if isJust stones
+        then Just (movePieces ((p, pickUp game pit), fromJust stones) p (pit + 1))
+        else Nothing
 
 pickUp :: Game -> Position -> Board
 pickUp (PlayerOne, ((s,one), two)) pit =
@@ -33,9 +37,9 @@ pickUp (PlayerTwo, (one, (s,two))) pit =
 
 movePieces :: (Game,Stones) -> Player -> Position -> Game
 movePieces (game@(playersTurn,(one,two)), stones) playersSide pos
-    | stones <= 0 = (otherPlayer playersTurn, (one, two))
-    | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
-    | otherwise = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
+    | stones <= 0                   = (otherPlayer playersTurn, (one, two))
+    | playersTurn == playersSide    = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
+    | otherwise                     = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
 
 getCorrect :: Game -> Stones -> Position -> (Game,Int)
 getCorrect (PlayerOne,((store,pits),two)) stones pos =
@@ -56,7 +60,6 @@ getIncorrect (PlayerTwo,((store,pits),two)) stones pos =
     let (newPits,remain) = sowStones pits pos stones
         newBoard = ((store,newPits),two)
     in ((PlayerTwo,newBoard), remain)
-
 
 getStones :: Game -> Position -> Maybe Int
 getStones (player, (one,two)) pit =
@@ -99,23 +102,25 @@ otherPlayer :: Player -> Player
 otherPlayer PlayerOne = PlayerTwo
 otherPlayer PlayerTwo = PlayerOne
 
--- story two
-data GameState = Ongoing | Win Player | Tie deriving Show
+-- story two and eight
+type Winner = Player
+data GameState = Ongoing | Win Winner | Tie deriving Show
 
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((_,one), (_,two)))
-    | all (\s -> s == 0) one     = True
-    | all (\s -> s == 0) two     = True
-    | otherwise                  = False
+    | all (== 0) one    = True
+    | all (== 0) two    = True
+    | otherwise         = False
+
+whoWon :: Game -> Maybe Winner
+whoWon game@(_, ((s1,_), (s2,_)))
+    | s1 > s2       = Just PlayerOne
+    | s1 < s2       = Just PlayerTwo
+    | otherwise     = Nothing
 
 currGameState :: Game -> GameState
-currGameState state@(_, ((s1,_), (s2,_)))
-    | not (hasGameEnded state)      = Ongoing
-    | s1 > s2                       = Win PlayerOne
-    | s2 > s1                       = Win PlayerTwo
+currGameState game
+    | not (hasGameEnded game)       = Ongoing
+    | isJust winner                 = Win (fromJust winner)
     | otherwise                     = Tie
-
--- story four
-possibleMoves game@(p, (rowOne, rowTwo)) = 
-                                         let playerRow = if p == PlayerOne then rowOne else rowTwo 
-                                         in [move (p, (rowOne, rowTwo)) pit | pit <-[0 .. (length (snd playerRow))], not (isNothing (getStones (p, (rowOne, rowTwo)) pit))] 
+    where winner = whoWon game
