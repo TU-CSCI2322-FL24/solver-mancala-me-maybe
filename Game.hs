@@ -114,3 +114,8 @@ currGameState state@(_, ((s1,_), (s2,_)))
     | s1 > s2                       = Win PlayerOne
     | s2 > s1                       = Win PlayerTwo
     | otherwise                     = Tie
+
+-- story four
+possibleMoves game@(p, (rowOne, rowTwo)) = 
+                                         let playerRow = if p == PlayerOne then rowOne else rowTwo 
+                                         in [move (p, (rowOne, rowTwo)) pit | pit <-[0 .. (length (snd playerRow))], not (isNothing (getStones (p, (rowOne, rowTwo)) pit))] 
