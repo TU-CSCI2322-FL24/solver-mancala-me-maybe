@@ -50,13 +50,17 @@ sowAll (_,s) = map (\a -> a + 1) s
 
 --returns new row and remaining pieces
 moveCorrectSide :: Row -> Position -> Int -> (Row,Int)
+moveCorrectSide (_ , pits) 0 stones =
+    let 
+        remaining      = stones - after
 moveCorrectSide (_ , pits) pos stones =
     let (before,after) = splitAt pos pits
         remaining      = stones - after
+        vals           = if remaining >
 
 sowRow :: Row -> Int -> Int -> Row
-sowRow [Store st] pit n = [Store (st + 1)]
-sowRow ((Pit pos st):xs) pit 0 = ((Pit pos st):xs)
+sowRow (store,[]) pit n = 
+sowRow (store, (p:ps)) pit 0 = ((Pit pos st):xs)
 sowRow ((Pit pos st):xs) pit n
     | pos == pit    = (Pit pos 0):(sowRow xs pit n)
     | pos < pit     = (Pit pos (st + 1)):(sowRow xs pit (n - 1))
