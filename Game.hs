@@ -37,7 +37,7 @@ pickUp (PlayerTwo, (one, (s,two))) pit =
 
 movePieces :: (Game,Stones) -> Player -> Position -> Game
 movePieces (game@(playersTurn,(one,two)), stones) playersSide pos
-    | stones <= 0                   = (otherPlayer playersTurn, (one, two))
+    | stones <= 0 = traceShow pos $ if emptyPit (playersTurn, (one,two)) pos then takeStoneFromOther (playersTurn, (one,two)) pos else (otherPlayer playersTurn, (one, two))
     | playersTurn == playersSide    = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
     | otherwise                     = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
 
@@ -97,6 +97,24 @@ sowStones pits pos stones =
         remaining      = stones - (length after)
         val            = if remaining >= 0 then sowAll after else sowSome after stones
         in (before ++ val, remaining)
+
+emptyPit :: Game -> Position -> Bool
+emptyPit game@(pl, (one, two)) pit = 
+                                   let Just stone = getStones (pl, (one,two)) pit
+                                   in traceShow stone $ stone == 1
+
+takeStoneFromOther :: Game -> Position -> Game 
+takeStoneFromOther game@(PlayerOne, (one,two)) pos = 
+                                             let curStore = (fst one) 
+                                                 aux oldX oldY ((st1, []), (st2, [])) count = (PlayerTwo, ((st1, oldX), (st2, oldY))) 
+                                                 aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, (((st1 + x + y), oldX ++ (0:xs)), (st2, oldY ++ (0:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
+                                            in aux [] [] (one, two) 0   
+
+takeStoneFromOther game@(PlayerTwo, (one,two)) pos = 
+                                             let curStore = (fst one) 
+                                                 aux oldX oldY ((st1, []), (st2, [])) count = (PlayerOne, ((st1, oldX), (st2, oldY))) 
+                                                 aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, ((st1, oldX ++ (0:xs)), ((st2 + x + y), oldY ++ (y:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
+                                            in aux [] [] (one, two) 0   
 
 otherPlayer :: Player -> Player
 otherPlayer PlayerOne = PlayerTwo
