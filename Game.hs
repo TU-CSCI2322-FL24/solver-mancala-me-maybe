@@ -139,7 +139,7 @@ prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
     in unlines [topRow, middleRow, bottomRow, currentPlayer]
 
 ------------------------------------------------------------------------------------------
--- story 8: Game State and Winner
+-- Story 8: Game State and Winner
 
 data Winner = Win Player | Tie deriving Show
 data GameState = Ongoing | Winner Winner deriving Show
@@ -168,17 +168,17 @@ whoWillWin :: Game -> GameState
 whoWillWin game@(player, _) =
     let moves = possibleMoves game
         outcomes = [currGameState g | g <- moves]
-    in getBest outcomes (Win $ otherPlayer player) player
+    in getBest outcomes (Winner (Win $ otherPlayer player)) player
 
 getBest :: [GameState] -> GameState -> Player -> GameState
 getBest [] gameState _ = gameState
-getBest (Tie:xs) gameState player = getBest xs Tie player
-getBest ((Win winner):xs) gameState player
-    | winner == player = Win winner
-    | otherwise        = getBest xs gameState player
+getBest (Winner Tie:xs) gameState player = getBest xs (Winner Tie) player
+getBest ((Winner (Win winner)):xs) gameState player
+    | winner == player      = Winner (Win winner)
+    | otherwise             = getBest xs gameState player
 
 -------------------------------------------------------------------------------------------
--- universal helper Functions
+-- Universal Helper Functions
 
 safeBangBang :: [(Int,Int)] -> Int -> Int
 safeBangBang [] _ = 0
@@ -197,4 +197,3 @@ getStones (player, (one,two)) pit =
     let (_,side) = sideOf player (one,two)
         val  = safeBangBang (zip side [0..]) pit
     in if val == 0 then Nothing else Just val
-
