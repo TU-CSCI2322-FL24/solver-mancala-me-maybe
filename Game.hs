@@ -70,21 +70,21 @@ sowStones pits pos stones =
 
 checkLanding :: (Game,Stones) -> Player -> Int -> Game
 checkLanding ((playerTurn,b),0) playerSide len --if ending in your own store
-    | playerSide /= playerTurn = traceShow "73" $ (playerTurn,b)
-    | otherwise = traceShow "74" $ (playerSide,b)
+    | playerSide /= playerTurn = (playerTurn,b)
+    | otherwise = (playerSide,b)
 checkLanding ((playerTurn,b),stones) playerSide len
-    | playerSide /= playerTurn = traceShow "76" $ (playerSide,b)
+    | playerSide /= playerTurn = (playerSide,b)
     | otherwise = --check where piece landed
         let position = len + stones
             check    = getStones (playerSide,b) position
             newTurn  = otherPlayer playerTurn
             other    = getStones (newTurn,b) (len + 1 - position)
         in case check of
-            Nothing -> traceShow "83" $ (newTurn, b)
+            Nothing -> (newTurn, b)
             Just 1  -> case other of
-                Nothing -> traceShow "85" $ (newTurn, b)
-                Just y -> traceShow "86" $ (newTurn, addToStore playerTurn b y position)
-            Just x  -> traceShow "87" $ (newTurn, b)
+                Nothing -> (newTurn, b)
+                Just y -> (newTurn, addToStore playerTurn b y position)
+            Just x  -> (newTurn, b)
 
 addToStore :: Player -> Board -> Stones -> Position -> Board
 addToStore PlayerOne ((s1,one),two) val pos =
