@@ -127,6 +127,18 @@ possibleMoves game@(_,((_,one),_)) =
     in [move game pos | pos <- [0..len]]
 
 ------------------------------------------------------------------------------------------
+
+-- Story 5: Pretty-print a game into a string as a Mancala board
+prettyPrintGame :: Game -> String
+prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
+    let boardWidth = length pitsOne
+        topRow = "      " ++ unwords (map show (reverse pitsTwo)) ++ "   "
+        middleRow = "P2: " ++ show storeTwo ++ replicate (1 + boardWidth * 2) ' ' ++ "P1: " ++ show storeOne
+        bottomRow = "      " ++ unwords (map show pitsOne) ++ "   "
+        currentPlayer = "Current Player: " ++ show player
+    in unlines [topRow, middleRow, bottomRow, currentPlayer]
+
+------------------------------------------------------------------------------------------
 -- story 8: Game State and Winner
 
 type Winner = Player
