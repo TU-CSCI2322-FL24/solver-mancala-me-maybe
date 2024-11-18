@@ -1,9 +1,12 @@
+module Game where
+
 import Debug.Trace
 import Data.Maybe
 
 -- story one
 type Position = Int
 type Stones = Int
+
 data Player = PlayerOne | PlayerTwo deriving (Show, Eq)
 type Row = (Int, [Int])
 type Board  = (Row, Row)
@@ -36,9 +39,12 @@ pickUp (p, ((s1,one), (s2,two))) pit =
 
 movePieces :: (Game,Stones) -> Player -> Position -> Game
 movePieces (game@(playersTurn,(one,two)), stones) playersSide pos
-    | stones <= 0 = checkLanding (game,stones) playersSide (length one) --(otherPlayer playersTurn, (one, two))
+    | stones <= 0                = checkLanding (game,stones) playersSide (length one) --(otherPlayer playersTurn, (one, two))
     | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
-    | otherwise = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
+    | otherwise                  = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
+    -- | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
+    -- | otherwise = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
+    -- | stones <= 0 = traceShow pos $ if emptyPit (playersTurn, (one,two)) pos then takeStoneFromOther (playersTurn, (one,two)) pos else (otherPlayer playersTurn, (one, two))
 
 getCorrect :: Game -> Stones -> Position -> (Game,Int)
 getCorrect (PlayerOne,((store,pits),two)) stones pos =
@@ -94,22 +100,46 @@ addToStore PlayerTwo (one,(s2,two)) val pos =
     let (before,_:after) = splitAt pos two
     in (one,(s2 + val + 1,before ++ [0] ++ after))
 
------------------------------------------------------------------------------------------
--- story two Game Status
-data GameState = Ongoing | Win Player | Tie deriving Show
+-- emptyPit :: Game -> Position -> Bool
+-- emptyPit game@(pl, (one, two)) pit = 
+                                   -- let Just stone = getStones (pl, (one,two)) pit
+                                   -- in traceShow stone $ stone == 1
+-- 
+-- takeStoneFromOther :: Game -> Position -> Game 
+-- takeStoneFromOther game@(PlayerOne, (one,two)) pos = 
+                                             -- let curStore = (fst one) 
+                                                 -- aux oldX oldY ((st1, []), (st2, [])) count = (PlayerTwo, ((st1, oldX), (st2, oldY))) 
+                                                 -- aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, (((st1 + x + y), oldX ++ (0:xs)), (st2, oldY ++ (0:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
+                                            -- in aux [] [] (one, two) 0   
+-- 
+-- takeStoneFromOther game@(PlayerTwo, (one,two)) pos = 
+                                             -- let curStore = (fst one) 
+                                                 -- aux oldX oldY ((st1, []), (st2, [])) count = (PlayerOne, ((st1, oldX), (st2, oldY))) 
+                                                 -- aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, ((st1, oldX ++ (0:xs)), ((st2 + x + y), oldY ++ (y:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
+                                            -- in aux [] [] (one, two) 0   
+----------------------------------------------------------------------------------------------------------------------------
+-- story two and eight
+type Winner = Player
+data GameState = Ongoing | Win Winner | Tie deriving Show
 
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((_,one), (_,two)))
-    | all (\s -> s == 0) one     = True
-    | all (\s -> s == 0) two     = True
-    | otherwise                  = False
+    | all (== 0) one    = True
+    | all (== 0) two    = True
+    | otherwise         = False
+
+whoWon :: Game -> Maybe Winner
+whoWon game@(_, ((s1,_), (s2,_)))
+    | s1 > s2       = Just PlayerOne
+    | s1 < s2       = Just PlayerTwo
+    | otherwise     = Nothing
 
 currGameState :: Game -> GameState
-currGameState state@(_, ((s1,_), (s2,_)))
-    | not (hasGameEnded state)      = Ongoing
-    | s1 > s2                       = Win PlayerOne
-    | s2 > s1                       = Win PlayerTwo
+currGameState game
+    | not (hasGameEnded game)       = Ongoing
+    | isJust winner                 = Win (fromJust winner)
     | otherwise                     = Tie
+    where winner = whoWon game
 
 -------------------------------------------------------------------------------------------
 -- universal helper Functions
