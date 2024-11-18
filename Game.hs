@@ -14,14 +14,12 @@ type Game = (Player, Board)
 
 --setup
 -----------------------------------------------------
+-- Story 1 & 3: Game and Move
 
 makeGame :: Int -> Game
 makeGame k =
     let pits = [4 | _ <- [1..k]]
     in (PlayerOne,((0, pits),(0, pits)))
-
-------------------------------------------------------
---move
 
 move :: Game -> Position -> Game
 move game@(p,board) pit =
@@ -29,6 +27,9 @@ move game@(p,board) pit =
     in case stones of
         Nothing -> error "Invalid Pit Selected"
         Just stones -> movePieces ((p, pickUp game pit), stones) p (pit + 1)
+
+------------------------------------------------------
+--move functions
 
 pickUp :: Game -> Position -> Board
 pickUp (p, ((s1,one), (s2,two))) pit =
@@ -117,8 +118,17 @@ addToStore PlayerTwo (one,(s2,two)) val pos =
                                                  -- aux oldX oldY ((st1, []), (st2, [])) count = (PlayerOne, ((st1, oldX), (st2, oldY))) 
                                                  -- aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, ((st1, oldX ++ (0:xs)), ((st2 + x + y), oldY ++ (y:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
                                             -- in aux [] [] (one, two) 0   
-----------------------------------------------------------------------------------------------------------------------------
--- story two and eight
+------------------------------------------------------------------------------------------
+--Story 4: possibleMoves
+
+possibleMoves :: Game -> [Game]
+possibleMoves game@(_,((_,one),_)) =
+    let len = length one - 1
+    in [move game pos | pos <- [0..len]]
+
+------------------------------------------------------------------------------------------
+-- story 8: Game State and Winner
+
 type Winner = Player
 data GameState = Ongoing | Win Winner | Tie deriving Show
 
@@ -135,11 +145,27 @@ whoWon game@(_, ((s1,_), (s2,_)))
     | otherwise     = Nothing
 
 currGameState :: Game -> GameState
-currGameState game
-    | not (hasGameEnded game)       = Ongoing
-    | isJust winner                 = Win (fromJust winner)
-    | otherwise                     = Tie
-    where winner = whoWon game
+currGameState game =
+    if not (hasGameEnded game) then Ongoing
+    else case (whoWon game) of
+        Just w  -> Win w
+        Nothing -> Tie
+
+------------------------------------------------------------------------------------------
+-- Story 9 & 10: Guess Moves
+
+whoWillWin :: Game -> GameState
+whoWillWin game@(player, _) =
+    let moves = possibleMoves game
+        outcomes = [currGameState g | g <- moves]
+    in getBest outcomes (Win $ otherPlayer player) player
+
+getBest :: [GameState] -> GameState -> Player -> GameState
+getBest [] gameState _ = gameState
+getBest (Tie:xs) gameState player = getBest xs Tie player
+getBest ((Win winner):xs) gameState player
+    | winner == player = Win winner
+    | otherwise        = getBest xs gameState player
 
 -------------------------------------------------------------------------------------------
 -- universal helper Functions
