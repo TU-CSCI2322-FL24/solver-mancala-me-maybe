@@ -154,18 +154,19 @@ currGameState game =
 ------------------------------------------------------------------------------------------
 -- Story 9 & 10: Guess Moves
 
-whoWillWin :: Game -> GameState
+whoWillWin :: Game -> (Game,GameState)
 whoWillWin game@(player, _) =
-    let moves = possibleMoves game
-        outcomes = [currGameState g | g <- moves]
-    in getBest outcomes (Win $ otherPlayer player) player
+    let moves          = possibleMoves game
+        (fst:outcomes) = [(g,currGameState g) | g <- moves]
+    in helpWho outcomes fst player
 
-getBest :: [GameState] -> GameState -> Player -> GameState
-getBest [] gameState _ = gameState
-getBest (Tie:xs) gameState player = getBest xs Tie player
-getBest ((Win winner):xs) gameState player
-    | winner == player = Win winner
-    | otherwise        = getBest xs gameState player
+helpWho :: [(Game,GameState)] -> (Game, GameState) -> Player -> (Game, GameState)
+helpWho [] game _ = game
+helpWho ((g, Tie):xs) (game, gameState) player = helpWho xs (g, Tie) player
+helpWho ((g, Win winner):xs) game player
+    | winner == player = (g, Win player)
+    | otherwise        = helpWho xs game player
+
 
 -------------------------------------------------------------------------------------------
 -- universal helper Functions
