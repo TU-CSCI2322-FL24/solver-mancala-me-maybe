@@ -141,8 +141,8 @@ prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
 ------------------------------------------------------------------------------------------
 -- story 8: Game State and Winner
 
-type Winner = Player
-data GameState = Ongoing | Win Winner | Tie deriving Show
+data Winner = Win Player | Tie deriving Show
+data GameState = Ongoing | Winner Winner deriving Show
 
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((_,one), (_,two)))
@@ -152,16 +152,14 @@ hasGameEnded (_, ((_,one), (_,two)))
 
 whoWon :: Game -> Maybe Winner
 whoWon game@(_, ((s1,_), (s2,_)))
-    | s1 > s2       = Just PlayerOne
-    | s1 < s2       = Just PlayerTwo
-    | otherwise     = Nothing
+    | not (hasGameEnded game)   = Nothing
+    | s1 > s2                   = Just (Win PlayerOne)
+    | s1 < s2                   = Just (Win PlayerTwo)
+    | s1 == s2                  = Just Tie
 
 currGameState :: Game -> GameState
 currGameState game =
-    if not (hasGameEnded game) then Ongoing
-    else case (whoWon game) of
-        Just w  -> Win w
-        Nothing -> Tie
+    maybe Ongoing Winner (whoWon game)
 
 ------------------------------------------------------------------------------------------
 -- Story 9 & 10: Guess Moves
