@@ -22,12 +22,15 @@ makeGame k =
     in (PlayerOne,((0, pits),(0, pits)))
 
 move :: Game -> Position -> Maybe Game 
-move game@(p,board) pit =
+move game@(p,board) pit = do
+                          stones <- getStones game pit 
+                          Just (movePieces ((p, pickUp game pit), stones) p (pit + 1)) 
+{-
     let stones = getStones game pit
     in case stones of
         Nothing -> Nothing 
         Just stones -> Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
-
+-}
 ------------------------------------------------------
 --move functions
 
@@ -185,7 +188,7 @@ findBestMove (move:moves) orgState =
     let aux [] (bestM, bestR) = bestM 
         aux (x:xs) (bestM, bestR) =  
             let rank = getRank x orgState 
-            in traceShow rank $ if rank > bestR then aux xs (x, rank) else aux xs (bestM, bestR)
+            in if rank > bestR then aux xs (x, rank) else aux xs (bestM, bestR)
     in aux moves (move, (getRank move orgState)) 
 
 getRank :: Game -> Game -> Int 
