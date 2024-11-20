@@ -2,6 +2,7 @@ module Game where
 
 import Debug.Trace
 import Data.Maybe
+import Text.Read
 
 -- story one
 type Position = Int
@@ -130,10 +131,22 @@ possibleMoves game@(_,((_,one),_)) =
     in catMaybes [move game pos | pos <- [0..len]]
 
 ------------------------------------------------------------------------------------------
--- story 8: Game State and Winner
 
-type Winner = Player
-data GameState = Ongoing | Win Winner | Tie deriving Show
+-- Story 5: Pretty-print a game into a string as a Mancala board
+prettyPrintGame :: Game -> String
+prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
+    let boardWidth = length pitsOne
+        topRow = "      " ++ unwords (map show (reverse pitsTwo)) ++ "   "
+        middleRow = "P2: " ++ show storeTwo ++ replicate (1 + boardWidth * 2) ' ' ++ "P1: " ++ show storeOne
+        bottomRow = "      " ++ unwords (map show pitsOne) ++ "   "
+        currentPlayer = "Player: " ++ show player
+    in unlines [topRow, middleRow, bottomRow, currentPlayer]
+
+------------------------------------------------------------------------------------------
+-- Story 8: Game State and Winner
+
+data Winner = Win Player | Tie deriving Show
+data GameState = Ongoing | Winner Winner deriving Show
 
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((_,one), (_,two)))
@@ -143,16 +156,14 @@ hasGameEnded (_, ((_,one), (_,two)))
 
 whoWon :: Game -> Maybe Winner
 whoWon game@(_, ((s1,_), (s2,_)))
-    | s1 > s2       = Just PlayerOne
-    | s1 < s2       = Just PlayerTwo
-    | otherwise     = Nothing
+    | not (hasGameEnded game)   = Nothing
+    | s1 > s2                   = Just (Win PlayerOne)
+    | s1 < s2                   = Just (Win PlayerTwo)
+    | s1 == s2                  = Just Tie
 
 currGameState :: Game -> GameState
 currGameState game =
-    if not (hasGameEnded game) then Ongoing
-    else case (whoWon game) of
-        Just w  -> Win w
-        Nothing -> Tie
+    maybe Ongoing Winner (whoWon game)
 
 ------------------------------------------------------------------------------------------
 -- Story 9: Guess Moves
@@ -169,7 +180,60 @@ helpWho ((g, Tie):xs) (game, gameState) player = helpWho xs (g, Tie) player
 helpWho ((g, Win winner):xs) game player
     | winner == player = (g, Win player)
     | otherwise        = helpWho xs game player
+-------------------------------------------------------------------------------------------
 
+-- Story 11 & 12: Text Format & readGame (read text format)
+
+readGame :: String -> Game
+readGame input =
+    let linesInput = lines input
+    in if length linesInput /= 4
+        then error "Invalid input: Expected exactly 4 lines."
+        else
+            let [line1, line2, line3, line4] = linesInput
+                -- Parse pitsTwo and pitsOne
+                pitsTwo = case traverse readMaybe (words line1) of
+                    Just pits -> reverse pits
+                    Nothing -> error "Invalid input: Pits (line 1) must be integers."
+                pitsOne = case traverse readMaybe (words line3) of
+                    Just pits -> pits
+                    Nothing -> error "Invalid input: Pits (line 3) must be integers."
+                -- Parse line2 for P1 and P2 store values
+                wordsLine2 = words line2
+                _ = if length wordsLine2 /= 4 || head wordsLine2 /= "P1:" || wordsLine2 !! 2 /= "P2:"
+                        then error "Invalid input: Line 2 must follow the format 'P1: <int> P2: <int>'."
+                        else ()
+                p1Store = case readMaybe (wordsLine2 !! 1) of
+                    Just s -> s
+                    Nothing -> error "Invalid input: P1 store value must be an integer."
+                p2Store = case readMaybe (wordsLine2 !! 3) of
+                    Just s -> s
+                    Nothing -> error "Invalid input: P2 store value must be an integer."
+                -- Parse line4 for player
+                wordsLine4 = words line4
+                _ = if length wordsLine4 /= 2 || head wordsLine4 /= "Player:"
+                        then error "Invalid input: Line 4 must follow the format 'Player: PlayerOne' or 'Player: PlayerTwo'."
+                        else ()
+                player = case last wordsLine4 of
+                    "PlayerOne" -> PlayerOne
+                    "PlayerTwo" -> PlayerTwo
+                    _ -> error "Invalid input: Player must be 'PlayerOne' or 'PlayerTwo'."
+            in (player, ((p1Store, pitsOne), (p2Store, pitsTwo)))
+
+-------------------------------------------------------------------------------------------
+-- Story 13: showGame (takes a game and puts it into string format)
+
+showGame :: Game -> String
+showGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
+    let -- Line 1: P2 pits (in reverse)
+        line1 = unwords (map show $ reverse pitsTwo)
+        -- Line 2: stores
+        line2 = "P1: " ++ show storeOne ++ " P2: " ++ show storeTwo
+        -- Line 3: P1 pits
+        line3 = unwords (map show pitsOne)
+        -- Line 4: current Player
+        line4 = "Player: " ++ show player
+    in unlines [line1, line2, line3, line4]
 
 ------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
@@ -239,4 +303,3 @@ getStones (player, (one,two)) pit =
     let (_,side) = sideOf player (one,two)
         val  = safeBangBang (zip side [0..]) pit
     in if val == 0 then Nothing else Just val
-
