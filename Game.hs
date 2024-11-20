@@ -131,8 +131,8 @@ possibleMoves game@(_,((_,one),_)) =
     in catMaybes [move game pos | pos <- [0..len]]
 
 ------------------------------------------------------------------------------------------
-
 -- Story 5: Pretty-print a game into a string as a Mancala board
+
 prettyPrintGame :: Game -> String
 prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
     let boardWidth = length pitsOne
@@ -176,12 +176,12 @@ whoWillWin game@(player, _) =
 
 helpWho :: [(Game,GameState)] -> (Game, GameState) -> Player -> (Game, GameState)
 helpWho [] game _ = game
-helpWho ((g, Tie):xs) (game, gameState) player = helpWho xs (g, Tie) player
-helpWho ((g, Win winner):xs) game player
-    | winner == player = (g, Win player)
+helpWho ((g, Winner Tie):xs) (game, gameState) player = helpWho xs (g, Winner Tie) player
+helpWho ((g, Winner (Win winner)):xs) game player
+    | winner == player = (g, Winner (Win player))
     | otherwise        = helpWho xs game player
--------------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------------
 -- Story 11 & 12: Text Format & readGame (read text format)
 
 readGame :: String -> Game
@@ -282,9 +282,10 @@ opCap (PlayerTwo, (one, two)) =
 canOpRepeat :: Game -> Bool 
 canOpRepeat (pt, (one,two)) = 
     let moves = possibleMoves (pt, (one, two)) 
-    in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves 
+    in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves
+
 -------------------------------------------------------------------------------------------
--- universal helper Functions
+-- Universal Helper Functions
 
 safeBangBang :: [(Int,Int)] -> Int -> Int
 safeBangBang [] _ = 0
