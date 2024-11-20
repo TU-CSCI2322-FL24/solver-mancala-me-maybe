@@ -2,6 +2,7 @@ module Game where
 
 import Debug.Trace
 import Data.Maybe
+import Text.Read
 
 -- story one
 type Position = Int
@@ -135,7 +136,7 @@ prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
         topRow = "      " ++ unwords (map show (reverse pitsTwo)) ++ "   "
         middleRow = "P2: " ++ show storeTwo ++ replicate (1 + boardWidth * 2) ' ' ++ "P1: " ++ show storeOne
         bottomRow = "      " ++ unwords (map show pitsOne) ++ "   "
-        currentPlayer = "Current Player: " ++ show player
+        currentPlayer = "Player: " ++ show player
     in unlines [topRow, middleRow, bottomRow, currentPlayer]
 
 ------------------------------------------------------------------------------------------
@@ -178,6 +179,48 @@ getBest (Tie:xs) gameState player = getBest xs Tie player
 getBest ((Win winner):xs) gameState player
     | winner == player = Win winner
     | otherwise        = getBest xs gameState player
+
+-------------------------------------------------------------------------------------------
+
+-- Story 11 & 12: Text Format & readGame (read text format)
+
+readGame :: String -> Game
+readGame input =
+    let linesInput = lines input
+    in if length linesInput /= 4
+        then error "Invalid input: Expected exactly 4 lines."
+        else
+            let [line1, line2, line3, line4] = linesInput
+                -- Parse pitsTwo and pitsOne
+                pitsTwo = case traverse readMaybe (words line1) of
+                    Just pits -> reverse pits
+                    Nothing -> error "Invalid input: Pits (line 1) must be integers."
+                pitsOne = case traverse readMaybe (words line3) of
+                    Just pits -> pits
+                    Nothing -> error "Invalid input: Pits (line 3) must be integers."
+                -- Parse line2 for P1 and P2 store values
+                wordsLine2 = words line2
+                _ = if length wordsLine2 /= 4 || head wordsLine2 /= "P1:" || wordsLine2 !! 2 /= "P2:"
+                        then error "Invalid input: Line 2 must follow the format 'P1: <int> P2: <int>'."
+                        else ()
+                p1Store = case readMaybe (wordsLine2 !! 1) of
+                    Just s -> s
+                    Nothing -> error "Invalid input: P1 store value must be an integer."
+                p2Store = case readMaybe (wordsLine2 !! 3) of
+                    Just s -> s
+                    Nothing -> error "Invalid input: P2 store value must be an integer."
+                -- Parse line4 for player
+                wordsLine4 = words line4
+                _ = if length wordsLine4 /= 2 || head wordsLine4 /= "Player:"
+                        then error "Invalid input: Line 4 must follow the format 'Player: PlayerOne' or 'Player: PlayerTwo'."
+                        else ()
+                player = case last wordsLine4 of
+                    "PlayerOne" -> PlayerOne
+                    "PlayerTwo" -> PlayerTwo
+                    _ -> error "Invalid input: Player must be 'PlayerOne' or 'PlayerTwo'."
+            in (player, ((p1Store, pitsOne), (p2Store, pitsTwo)))
+
+
 
 -------------------------------------------------------------------------------------------
 -- universal helper Functions
