@@ -220,7 +220,20 @@ readGame input =
                     _ -> error "Invalid input: Player must be 'PlayerOne' or 'PlayerTwo'."
             in (player, ((p1Store, pitsOne), (p2Store, pitsTwo)))
 
+-------------------------------------------------------------------------------------------
+-- Story 13: showGame (takes a game and puts it into string format)
 
+showGame :: Game -> String
+showGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
+    let -- Line 1: P2 pits (in reverse)
+        line1 = unwords (map show $ reverse pitsTwo)
+        -- Line 2: stores
+        line2 = "P1: " ++ show storeOne ++ " P2: " ++ show storeTwo
+        -- Line 3: P1 pits
+        line3 = unwords (map show pitsOne)
+        -- Line 4: current Player
+        line4 = "Player: " ++ show player
+    in unlines [line1, line2, line3, line4]
 
 -------------------------------------------------------------------------------------------
 -- universal helper Functions
