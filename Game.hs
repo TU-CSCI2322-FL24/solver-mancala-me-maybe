@@ -43,13 +43,10 @@ pickUp (p, ((s1,one), (s2,two))) pit =
 
 
 movePieces :: (Game,Stones) -> Player -> Position -> Game
-movePieces (game@(playersTurn,(one,two)), stones) playersSide pos
+movePieces (game@(playersTurn,((_,one),_)), stones) playersSide pos
     | stones <= 0                = checkLanding (game,stones) playersSide (length one) --(otherPlayer playersTurn, (one, two))
     | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
     | otherwise                  = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
-    -- | playersTurn == playersSide = movePieces (getCorrect game stones pos) (otherPlayer playersSide) 0
-    -- | otherwise = movePieces (getIncorrect game stones pos) (otherPlayer playersSide) 0
-    -- | stones <= 0 = traceShow pos $ if emptyPit (playersTurn, (one,two)) pos then takeStoneFromOther (playersTurn, (one,two)) pos else (otherPlayer playersTurn, (one, two))
 
 getCorrect :: Game -> Stones -> Position -> (Game,Int)
 getCorrect (PlayerOne,((store,pits),two)) stones pos =
@@ -81,47 +78,32 @@ sowStones pits pos stones =
 
 checkLanding :: (Game,Stones) -> Player -> Int -> Game
 checkLanding ((playerTurn,b),0) playerSide len --if ending in your own store
-    | playerSide /= playerTurn = (playerTurn,b)
+    | playerSide /= playerTurn = (playerTurn,b) --you ended in your own store
     | otherwise = (playerSide,b)
 checkLanding ((playerTurn,b),stones) playerSide len
-    | playerSide /= playerTurn = (playerSide,b)
-    | otherwise = --check where piece landed
+    | playerSide == playerTurn = (otherPlayer playerTurn,b) --you ended on the other side
+    | otherwise = --you ended on your side
         let position = len + stones
-            check    = getStones (playerSide,b) position
-            newTurn  = otherPlayer playerTurn
-            other    = getStones (newTurn,b) (len + 1 - position)
+            check    = getStones (playerTurn,b) position
+            otherPosition = len + 1 - position
+            other    = getStones (playerSide,b) otherPosition
         in case check of
-            Nothing -> (newTurn, b)
+            Nothing -> (playerSide, b)
             Just 1  -> case other of
-                Nothing -> (newTurn, b)
-                Just y -> (newTurn, addToStore playerTurn b y position)
-            Just x  -> (newTurn, b)
+                Nothing -> (playerSide, b)
+                Just y -> (playerSide, addToStore playerTurn b y position otherPosition)
+            Just x  -> (playerSide, b)
 
-addToStore :: Player -> Board -> Stones -> Position -> Board
-addToStore PlayerOne ((s1,one),two) val pos =
-    let (before,_:after) = splitAt pos one
-    in ((s1 + val + 1,before ++ [0] ++ after),two)
-addToStore PlayerTwo (one,(s2,two)) val pos =
-    let (before,_:after) = splitAt pos two
-    in (one,(s2 + val + 1,before ++ [0] ++ after))
+addToStore :: Player -> Board -> Stones -> Position -> Position -> Board
+addToStore PlayerOne ((s1,one),(s2,two)) val pos1 pos2 =
+    let (before,_:after) = splitAt pos1 one
+        (oB,_:oA)        = splitAt pos2 two
+    in ((s1 + val + 1,before ++ [0] ++ after),(s2,(oB ++ [0] ++ oA)))
+addToStore PlayerTwo ((s1,one),(s2,two)) val pos1 pos2 =
+    let (before,_:after) = splitAt pos1 two
+        (oB,_:oA)        = splitAt pos2 one
+    in ((s1, oB ++ [0] ++ oA),(s2 + val + 1,before ++ [0] ++ after))
 
--- emptyPit :: Game -> Position -> Bool
--- emptyPit game@(pl, (one, two)) pit = 
-                                   -- let Just stone = getStones (pl, (one,two)) pit
-                                   -- in traceShow stone $ stone == 1
--- 
--- takeStoneFromOther :: Game -> Position -> Game 
--- takeStoneFromOther game@(PlayerOne, (one,two)) pos = 
-                                             -- let curStore = (fst one) 
-                                                 -- aux oldX oldY ((st1, []), (st2, [])) count = (PlayerTwo, ((st1, oldX), (st2, oldY))) 
-                                                 -- aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, (((st1 + x + y), oldX ++ (0:xs)), (st2, oldY ++ (0:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
-                                            -- in aux [] [] (one, two) 0   
--- 
--- takeStoneFromOther game@(PlayerTwo, (one,two)) pos = 
-                                             -- let curStore = (fst one) 
-                                                 -- aux oldX oldY ((st1, []), (st2, [])) count = (PlayerOne, ((st1, oldX), (st2, oldY))) 
-                                                 -- aux oldX oldY ((st1, (x:xs)), (st2, (y:ys))) count = if count == pos then (PlayerTwo, ((st1, oldX ++ (0:xs)), ((st2 + x + y), oldY ++ (y:ys)))) else aux (x:oldX) (0:oldY) ((st1, xs), (st2, ys)) (count + 1) 
-                                            -- in aux [] [] (one, two) 0   
 ------------------------------------------------------------------------------------------
 --Story 4: possibleMoves
 
