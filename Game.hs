@@ -22,10 +22,10 @@ makeGame k =
     let pits = [4 | _ <- [1..k]]
     in (PlayerOne,((0, pits),(0, pits)))
 
-move :: Game -> Position -> Maybe Game 
+move :: Game -> Position -> Maybe Game
 move game@(p,board) pit = do
-                          stones <- getStones game pit 
-                          Just (movePieces ((p, pickUp game pit), stones) p (pit + 1)) 
+                          stones <- getStones game pit
+                          Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
 {-
     let stones = getStones game pit
     in case stones of
@@ -220,51 +220,73 @@ showGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
 ------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
 
-bestMove :: Game -> Game 
-bestMove game@(pt, (one,two)) = 
-    let moves = possibleMoves (pt, (one,two)) 
-        repeats = stopAtStore moves pt 
-    in if (null repeats) then findBestMove moves (pt, (one,two)) else findBestMove repeats (pt, (one,two)) 
+bestMove :: Game -> Game
+bestMove game@(pt, (one,two)) =
+    let moves = possibleMoves (pt, (one,two))
+        repeats = stopAtStore moves pt
+    in if (null repeats) then findBestMove moves (pt, (one,two)) else findBestMove repeats (pt, (one,two))
 
-stopAtStore :: [Game] -> Player -> [Game] 
+stopAtStore :: [Game] -> Player -> [Game]
 stopAtStore moves pt = [(mPt, state) | (mPt, state) <- moves, mPt == pt]
 
-findBestMove :: [Game] -> Game -> Game 
-findBestMove (move:moves) orgState = 
-    let aux [] (bestM, bestR) = bestM 
-        aux (x:xs) (bestM, bestR) =  
-            let rank = getRank x orgState 
+findBestMove :: [Game] -> Game -> Game
+findBestMove (move:moves) orgState =
+    let aux [] (bestM, bestR) = bestM
+        aux (x:xs) (bestM, bestR) =
+            let rank = getRank x orgState
             in if rank > bestR then aux xs (x, rank) else aux xs (bestM, bestR)
-    in aux moves (move, (getRank move orgState)) 
+    in aux moves (move, (getRank move orgState))
 
-getRank :: Game -> Game -> Int 
-getRank (nPt, (nOne,nTwo)) (PlayerOne, (one,two)) = 
+getRank :: Game -> Game -> Int
+getRank (nPt, (nOne,nTwo)) (PlayerOne, (one,two)) =
     let captureScore = (fst nOne) - (fst one)
         otherSideStone = (- (sum [new - cur | (new, cur) <- (zip (snd nTwo) (snd two))]))
-        opCapPotent = opCap (nPt, (nOne, nTwo)) 
-        allowOpRepeat = if (nPt == PlayerOne) || (not (canOpRepeat (nPt, (nOne,nTwo)))) then 0 else (-3)   
-    in captureScore + otherSideStone + opCapPotent + allowOpRepeat 
+        opCapPotent = opCap (nPt, (nOne, nTwo))
+        allowOpRepeat = if (nPt == PlayerOne) || (not (canOpRepeat (nPt, (nOne,nTwo)))) then 0 else (-3)
+    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
 
-getRank (nPt, (nOne, nTwo)) (PlayerTwo, (one,two)) = 
-    let captureScore = (fst nTwo) - (fst two) 
+getRank (nPt, (nOne, nTwo)) (PlayerTwo, (one,two)) =
+    let captureScore = (fst nTwo) - (fst two)
         otherSideStone = (-(sum [new - cur | (new, cur) <- (zip (snd nOne) (snd one))]))
-        opCapPotent = opCap (nPt, (nOne, nTwo)) 
-        allowOpRepeat = if (nPt == PlayerTwo) || (not (canOpRepeat (nPt, (nOne, nTwo)))) then 0 else (-3) 
-    in captureScore + otherSideStone + opCapPotent + allowOpRepeat 
+        opCapPotent = opCap (nPt, (nOne, nTwo))
+        allowOpRepeat = if (nPt == PlayerTwo) || (not (canOpRepeat (nPt, (nOne, nTwo)))) then 0 else (-3)
+    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
 
 opCap :: Game -> Int
-opCap (PlayerOne, (one,two)) = 
+opCap (PlayerOne, (one,two)) =
     let moves = possibleMoves (PlayerOne, (one,two))
-    in foldr (\ (p, (o,t)) recVal -> max ((fst o) - (fst one)) recVal) 0 moves 
+    in foldr (\ (p, (o,t)) recVal -> max ((fst o) - (fst one)) recVal) 0 moves
 
-opCap (PlayerTwo, (one, two)) = 
+opCap (PlayerTwo, (one, two)) =
     let moves = possibleMoves (PlayerTwo, (one,two))
-    in foldr (\ (p, (o,t)) recVal -> max (((fst t) - (fst two)) - 1) recVal) 0 moves 
+    in foldr (\ (p, (o,t)) recVal -> max (((fst t) - (fst two)) - 1) recVal) 0 moves
 
-canOpRepeat :: Game -> Bool 
-canOpRepeat (pt, (one,two)) = 
-    let moves = possibleMoves (pt, (one, two)) 
+canOpRepeat :: Game -> Bool
+canOpRepeat (pt, (one,two)) =
+    let moves = possibleMoves (pt, (one, two))
     in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves
+
+-------------------------------------------------------------------------------------------
+-- Story 14: IO Actions
+
+writeGame :: Game -> FilePath -> IO ()
+writeGame game filePath = do
+    writeFile filePath (showGame game)
+
+loadGame :: FilePath -> IO Game
+loadGame filePath = do
+    contents <- readFile filePath
+    return (readGame contents)
+
+putBestMove :: Game -> IO ()
+putBestMove game = do
+    putStrLn "Old Game:"
+    putStrLn $ showGame game
+    putStrLn "Best Move:"
+    putStrLn $ showGame (bestMove game)
+
+main :: IO ()
+main = undefined
 
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
