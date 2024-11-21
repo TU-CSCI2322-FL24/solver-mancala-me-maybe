@@ -169,18 +169,20 @@ helpWho ((g, Winner (Win winner)):xs) game player
 readGame :: String -> Game
 readGame input =
     let linesInput = lines input
-    in if length linesInput /= 4
-        then error "Invalid input: Expected exactly 4 lines."
-        else
-            let [line1, line2, line3, line4] = linesInput
-                -- Parse pitsTwo and pitsOne
-                pitsTwo = case traverse readMaybe (words line1) of
+    in case linesInput of
+        [] -> error "Invalid input: 0 lines provided, expected 4."
+        [_] -> error "Invalid input: 1 line provided, expected 4."
+        [_, _] -> error "Invalid input: 2 lines provided, expected 4."
+        [_, _, _] -> error "Invalid input: 3 lines provided, expected 4."
+        [line1, line2, line3, line4] -> 
+            -- parse pitsTwo and pitsOne
+            let pitsTwo = case traverse readMaybe (words line1) of
                     Just pits -> reverse pits
-                    Nothing -> error "Invalid input: Pits (line 1) must be integers."
+                    Nothing -> error "Invalid input: P2 Pits (line 1) must be integers."
                 pitsOne = case traverse readMaybe (words line3) of
                     Just pits -> pits
-                    Nothing -> error "Invalid input: Pits (line 3) must be integers."
-                -- Parse line2 for P1 and P2 store values
+                    Nothing -> error "Invalid input: P1 Pits (line 3) must be integers."
+                -- parse line2 for P1 and P2 store values
                 wordsLine2 = words line2
                 _ = if length wordsLine2 /= 4 || head wordsLine2 /= "P1:" || wordsLine2 !! 2 /= "P2:"
                         then error "Invalid input: Line 2 must follow the format 'P1: <int> P2: <int>'."
@@ -191,7 +193,7 @@ readGame input =
                 p2Store = case readMaybe (wordsLine2 !! 3) of
                     Just s -> s
                     Nothing -> error "Invalid input: P2 store value must be an integer."
-                -- Parse line4 for player
+                -- parse line4 for player
                 wordsLine4 = words line4
                 _ = if length wordsLine4 /= 2 || head wordsLine4 /= "Player:"
                         then error "Invalid input: Line 4 must follow the format 'Player: PlayerOne' or 'Player: PlayerTwo'."
@@ -201,6 +203,7 @@ readGame input =
                     "PlayerTwo" -> PlayerTwo
                     _ -> error "Invalid input: Player must be 'PlayerOne' or 'PlayerTwo'."
             in (player, ((p1Store, pitsOne), (p2Store, pitsTwo)))
+        _ -> error "Invalid input: More than 4 lines provided, expected exactly 4."
 
 -------------------------------------------------------------------------------------------
 -- Story 13: showGame (takes a game and puts it into string format)
