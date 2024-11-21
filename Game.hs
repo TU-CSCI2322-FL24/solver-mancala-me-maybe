@@ -79,7 +79,7 @@ sowStones pits pos stones =
 checkLanding :: (Game,Stones) -> Player -> Int -> Game
 checkLanding ((playerTurn,b),0) playerSide len --if ending in your own store
     | playerSide /= playerTurn = (playerTurn,b) --you ended in your own store
-    | otherwise = (playerSide,b)
+    | otherwise = (otherPlayer playerSide,b)
 checkLanding ((playerTurn,b),stones) playerSide len
     | playerSide == playerTurn = (otherPlayer playerTurn,b) --you ended on the other side
     | otherwise = --you ended on your side
