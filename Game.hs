@@ -13,6 +13,9 @@ type Row = (Int, [Int])
 type Board  = (Row, Row)
 type Game = (Player, Board)
 
+data Winner = Win Player | Tie deriving (Show,Eq)
+data GameState = Ongoing | Winner Winner deriving Show
+
 --setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
@@ -127,8 +130,6 @@ prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
 ------------------------------------------------------------------------------------------
 -- Story 8: Game State and Winner
 
-data Winner = Win Player | Tie deriving Show
-data GameState = Ongoing | Winner Winner deriving Show
 
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((_,one), (_,two)))
@@ -150,18 +151,27 @@ currGameState game =
 ------------------------------------------------------------------------------------------
 -- Story 9: Guess Moves
 
-whoWillWin :: Game -> (Game,GameState)
-whoWillWin game@(player, _) =
-    let moves          = possibleMoves game
-        (fst:outcomes) = [(g,currGameState g) | g <- moves]
-    in helpWho outcomes fst player
+whoWillWin :: Game -> Winner
+whoWillWin game@(player, _) = ongoingToWinner (possibleMoves game) player
 
-helpWho :: [(Game,GameState)] -> (Game, GameState) -> Player -> (Game, GameState)
-helpWho [] game _ = game
-helpWho ((g, Winner Tie):xs) (game, gameState) player = helpWho xs (g, Winner Tie) player
-helpWho ((g, Winner (Win winner)):xs) game player
-    | winner == player = (g, Winner (Win player))
-    | otherwise        = helpWho xs game player
+
+ongoingToWinner :: [Game] -> Player -> Winner
+ongoingToWinner games player =
+    let moves         = allMoves games
+        outcomes      = [(g,currGameState g) | g <- moves]
+        (ongoing,bestState) = foldr sortGameState ([],Win (otherPlayer player)) outcomes
+    in if bestState == Win player then Win player
+       else if length ongoing == 0 then bestState
+            else ongoingToWinner ongoing (otherPlayer player)
+
+sortGameState :: (Game,GameState) -> ([Game],Winner) -> ([Game], Winner)
+sortGameState (g,Ongoing) (a,b) = ((g:a), b)
+sortGameState ((player,_), Winner Tie) (a,b) = if b == Win player then (a,b) else (a, Tie)
+sortGameState ((player,_), Winner (Win p)) (a,b) = if player == p then (a, Win p) else (a,b)
+
+allMoves :: [Game] -> [Game]
+allMoves [] = []
+allMove (g:gs) = (possibleMoves g) ++ (allMoves gs)
 
 -------------------------------------------------------------------------------------------
 -- Story 11 & 12: Text Format & readGame (read text format)
