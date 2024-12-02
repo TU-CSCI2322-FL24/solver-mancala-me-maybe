@@ -3,6 +3,7 @@ module Game where
 import Debug.Trace
 import Data.Maybe
 import Text.Read
+import System.Environment
 
 -- story one
 type Position = Int
@@ -299,7 +300,11 @@ putBestMove game = do
     putStrLn $ showGame (bestMove game)
 
 main :: IO ()
-main = undefined
+main = do
+    args <- getArgs
+    let filePath = if length args == 1 then head args else error "Incorrect number of arguments."
+    game <- loadGame filePath
+    putBestMove game
 
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
