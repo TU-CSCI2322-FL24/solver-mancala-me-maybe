@@ -154,6 +154,7 @@ currGameState game =
 ------------------------------------------------------------------------------------------
 -- Story 9: Guess Moves
 whoWillWin :: Game -> Player -> Winner
+
 -- depth first search 
 whoWillWin game pl = 
    let aux game = traceShow ((show (hasGameEnded game)) ++ " : " ++ (show game)) $ if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]   
