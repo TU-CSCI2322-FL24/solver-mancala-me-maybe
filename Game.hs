@@ -17,6 +17,9 @@ type Move = (Player, Position)
 data Winner = Win Player | Tie deriving (Show,Eq)
 data GameState = Ongoing | Winner Winner deriving Show
 
+data Winner = Win Player | Tie deriving (Show,Eq)
+data GameState = Ongoing | Winner Winner deriving Show
+
 --setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
@@ -89,7 +92,7 @@ checkLanding ((playerTurn,b),stones) playerSide len
     | otherwise = --you ended on your side
         let position = len + stones
             check    = getStones (playerTurn,b) position
-            otherPosition = len - 1 - position
+            otherPosition = len + 1 - position
             other    = getStones (playerSide,b) otherPosition
         in case check of
             Nothing -> (playerSide, b)
@@ -187,7 +190,8 @@ whoWillWin game@(player, _) = ongoingToWinner (possibleMoves game) player
 
 ongoingToWinner :: [Game] -> Player -> Winner
 ongoingToWinner games player =
-    let moves         = traceShow (show games) $ allMoves games
+    let moves         = allMoves games
+        main
         outcomes      = [(g,currGameState g) | g <- moves]
         (ongoing,bestState) = foldr sortGameState ([],Win (otherPlayer player)) outcomes
     in if bestState == Win player then Win player
@@ -203,6 +207,66 @@ allMoves :: [Game] -> [Game]
 allMoves [] = []
 allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g) ++ (allMoves gs)
 --}
+-------------------------------------------------------------------------------------------
+-- Story 10: Best Move 
+
+bestMove :: Game -> Game 
+bestMove game@(pl, (one,two)) = 
+    let (x:xs) = possibleMoves game 
+        aux [] pl (gameState, result) = gameState
+        aux (y:ys) pl (gameState, result) = 
+            let newResult = whoWillWin y pl   
+            in if result == (Win pl) then gameState else if newResult == (Win pl) then y else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (y, newResult) else aux ys pl (gameState, result) 
+    in aux xs pl (x, (whoWillWin x pl)) 
+
+-- Keep for Sprint 3 
+{-- bestMove :: Game -> Game
+bestMove game@(pt, (one,two)) =
+    let moves = possibleMoves (pt, (one,two))
+        repeats = stopAtStore moves pt
+    in if (null repeats) then findBestMove moves (pt, (one,two)) else findBestMove repeats (pt, (one,two))
+
+stopAtStore :: [Game] -> Player -> [Game]
+stopAtStore moves pt = [(mPt, state) | (mPt, state) <- moves, mPt == pt]
+
+findBestMove :: [Game] -> Game -> Game
+findBestMove (move:moves) orgState =
+    let aux [] (bestM, bestR) = bestM
+        aux (x:xs) (bestM, bestR) =
+            let rank = getRank x orgState
+            in if rank > bestR then aux xs (x, rank) else aux xs (bestM, bestR)
+    in aux moves (move, (getRank move orgState))
+
+getRank :: Game -> Game -> Int
+getRank (nPt, (nOne,nTwo)) (PlayerOne, (one,two)) =
+    let captureScore = (fst nOne) - (fst one)
+        otherSideStone = (- (sum [new - cur | (new, cur) <- (zip (snd nTwo) (snd two))]))
+        opCapPotent = opCap (nPt, (nOne, nTwo))
+        allowOpRepeat = if (nPt == PlayerOne) || (not (canOpRepeat (nPt, (nOne,nTwo)))) then 0 else (-3)
+    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
+
+getRank (nPt, (nOne, nTwo)) (PlayerTwo, (one,two)) =
+    let captureScore = (fst nTwo) - (fst two)
+        otherSideStone = (-(sum [new - cur | (new, cur) <- (zip (snd nOne) (snd one))]))
+        opCapPotent = opCap (nPt, (nOne, nTwo))
+        allowOpRepeat = if (nPt == PlayerTwo) || (not (canOpRepeat (nPt, (nOne, nTwo)))) then 0 else (-3)
+    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
+
+opCap :: Game -> Int
+opCap (PlayerOne, (one,two)) =
+    let moves = possibleMoves (PlayerOne, (one,two))
+    in foldr (\ (p, (o,t)) recVal -> max ((fst o) - (fst one)) recVal) 0 moves
+
+opCap (PlayerTwo, (one, two)) =
+    let moves = possibleMoves (PlayerTwo, (one,two))
+    in foldr (\ (p, (o,t)) recVal -> max (((fst t) - (fst two)) - 1) recVal) 0 moves
+
+
+canOpRepeat :: Game -> Bool
+canOpRepeat (pt, (one,two)) =
+    let moves = possibleMoves (pt, (one, two))
+    in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves
+--} 
 -------------------------------------------------------------------------------------------
 -- Story 11 & 12: Text Format & readGame (read text format)
 
@@ -260,65 +324,6 @@ showGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
         line4 = "Player: " ++ show player
     in unlines [line1, line2, line3, line4]
 
-------------------------------------------------------------------------------------------
--- Story 10: Best Move 
-
-bestMove :: Game -> Game 
-bestMove game@(pl, (one,two)) = 
-    let (x:xs) = possibleMoves game 
-        aux [] pl (gameState, result) = gameState
-        aux (y:ys) pl (gameState, result) = 
-            let newResult = whoWillWin y pl   
-            in if result == (Win pl) then gameState else if newResult == (Win pl) then y else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (y, newResult) else aux ys pl (gameState, result) 
-    in aux xs pl (x, (whoWillWin x pl)) 
-
--- Keep for Sprint 3 
-{-- bestMove :: Game -> Game
-bestMove game@(pt, (one,two)) =
-    let moves = possibleMoves (pt, (one,two))
-        repeats = stopAtStore moves pt
-    in if (null repeats) then findBestMove moves (pt, (one,two)) else findBestMove repeats (pt, (one,two))
-
-stopAtStore :: [Game] -> Player -> [Game]
-stopAtStore moves pt = [(mPt, state) | (mPt, state) <- moves, mPt == pt]
-
-findBestMove :: [Game] -> Game -> Game
-findBestMove (move:moves) orgState =
-    let aux [] (bestM, bestR) = bestM
-        aux (x:xs) (bestM, bestR) =
-            let rank = getRank x orgState
-            in if rank > bestR then aux xs (x, rank) else aux xs (bestM, bestR)
-    in aux moves (move, (getRank move orgState))
-
-getRank :: Game -> Game -> Int
-getRank (nPt, (nOne,nTwo)) (PlayerOne, (one,two)) =
-    let captureScore = (fst nOne) - (fst one)
-        otherSideStone = (- (sum [new - cur | (new, cur) <- (zip (snd nTwo) (snd two))]))
-        opCapPotent = opCap (nPt, (nOne, nTwo))
-        allowOpRepeat = if (nPt == PlayerOne) || (not (canOpRepeat (nPt, (nOne,nTwo)))) then 0 else (-3)
-    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
-
-getRank (nPt, (nOne, nTwo)) (PlayerTwo, (one,two)) =
-    let captureScore = (fst nTwo) - (fst two)
-        otherSideStone = (-(sum [new - cur | (new, cur) <- (zip (snd nOne) (snd one))]))
-        opCapPotent = opCap (nPt, (nOne, nTwo))
-        allowOpRepeat = if (nPt == PlayerTwo) || (not (canOpRepeat (nPt, (nOne, nTwo)))) then 0 else (-3)
-    in captureScore + otherSideStone + opCapPotent + allowOpRepeat
-
-opCap :: Game -> Int
-opCap (PlayerOne, (one,two)) =
-    let moves = possibleMoves (PlayerOne, (one,two))
-    in foldr (\ (p, (o,t)) recVal -> max ((fst o) - (fst one)) recVal) 0 moves
-
-opCap (PlayerTwo, (one, two)) =
-    let moves = possibleMoves (PlayerTwo, (one,two))
-    in foldr (\ (p, (o,t)) recVal -> max (((fst t) - (fst two)) - 1) recVal) 0 moves
-
-canOpRepeat :: Game -> Bool
-canOpRepeat (pt, (one,two)) =
-    let moves = possibleMoves (pt, (one, two))
-    in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves
---} 
 -------------------------------------------------------------------------------------------
 -- Story 14: IO Actions
 
@@ -367,6 +372,7 @@ compareListOutcome pl (w:ws) =
    let aux [] outcome = outcome
        aux (x:xs) outcome = aux xs (compareOutcome pl x outcome) 
    in aux ws w 
+   
 compareOutcome :: Player -> Winner -> Winner -> Winner
 compareOutcome pl new current = if new == (Win (otherPlayer pl)) then current else if new == (Win pl) then new else if (new == (Win pl)) && (current == (Win (otherPlayer pl))) then new else current 
 
