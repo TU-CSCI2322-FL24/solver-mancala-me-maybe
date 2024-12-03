@@ -1,18 +1,25 @@
-# Command 
-
+# Commands
 build: 
-	ghc --make -O -o game Main.hs
+	ghc -main-is Game --make -O -o game Game.hs
+	ghc -main-is Testing --make -O -o test Testing.hs
 
 prof: 
-	ghc --make -prof -o game Main.hs
+	ghc -main-is Game --make -prof -o game Game.hs
+	ghc -main-is Testing --make -prof -o test Testing.hs
 
-all: build test
+all: 
+	build game
+	build test
 
 # Cleaning commands:
 clean:
-	rm -f Game
+	rm -f game
+	rm -f test
 	rm -f *.hi
 	rm -f *.o
 
+game: build
+	./game --game
+
 test: build
-	./game --test
+	./test --test

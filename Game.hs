@@ -18,9 +18,6 @@ type Move = (Player, Position)
 data Winner = Win Player | Tie deriving (Show,Eq)
 data GameState = Ongoing | Winner Winner deriving Show
 
-data Winner = Win Player | Tie deriving (Show,Eq)
-data GameState = Ongoing | Winner Winner deriving Show
-
 --setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
