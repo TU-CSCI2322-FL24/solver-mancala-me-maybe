@@ -3,3 +3,13 @@
 ##############
 *.txt
 !games/*.txt
+
+# Executables #
+###############
+game
+test
+
+# Other Files #
+###############
+*.hi
+*.o
