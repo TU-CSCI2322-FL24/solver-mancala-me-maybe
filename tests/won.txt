@@ -1,0 +1,4 @@
+0 0 0 0 0 0
+P1: 31 P2: 15
+0 0 1 0 1 0
+Player: PlayerOne
