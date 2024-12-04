@@ -2,7 +2,8 @@
 # Text Files #
 ##############
 *.txt
-!games/*.txt
+!demos/*.txt
+!tests/*.txt
 
 # Executables #
 ###############
