@@ -4,6 +4,7 @@ import Debug.Trace
 import Data.Maybe
 import Text.Read
 import System.Environment
+import System.Console.GetOpt
 
 -- story one
 type Position = Int
@@ -158,9 +159,10 @@ currGameState game =
 whoWillWin :: Game -> Player -> Winner
 
 -- depth first search 
-whoWillWin game pl =
-   let aux game = traceShow ((show (hasGameEnded game)) ++ " : " ++ (show game)) $ if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]
-   in aux game
+whoWillWin game pl = 
+   let aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]   
+   in aux game 
+
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
@@ -209,14 +211,14 @@ allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g
 -------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
 
-bestMove :: Game -> Game
-bestMove game@(pl, (one,two)) =
-    let (x:xs) = possibleMoves game
-        aux [] pl (gameState, result) = gameState
-        aux (y:ys) pl (gameState, result) =
-            let newResult = whoWillWin y pl
-            in if result == (Win pl) then gameState else if newResult == (Win pl) then y else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (y, newResult) else aux ys pl (gameState, result)
-    in aux xs pl (x, (whoWillWin x pl))
+bestMove :: Game -> Move 
+bestMove game@(pl, (one,two)) = 
+    let ((x, pos):xs) = zip (possibleMoves game) [0 ..]  
+        aux [] pl (pos, result) = (pl,pos)  
+        aux ((y, p):ys) pl (pos, result) = 
+            let newResult = whoWillWin y pl   
+            in if result == (Win pl) then (pl, pos) else if newResult == (Win pl) then (pl, p) else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (p, newResult) else aux ys pl (pos, result) 
+    in aux xs pl (pos, (whoWillWin x pl)) 
 
 -- Keep for Sprint 3 
 {-- bestMove :: Game -> Game
@@ -335,20 +337,46 @@ loadGame filePath = do
     contents <- readFile filePath
     return (readGame contents)
 
-putBestMove :: Game -> IO ()
+putBestMove game = do 
+    putStrLn $ show (bestMove game)
+    
+{- putBestMove :: Game -> IO ()
 putBestMove game = do
     let best = bestMove game
     putStrLn "Best Move:"
     putStrLn $ showGame best
     putStrLn "Forced Move:"
     putStrLn $ showGame (bestMove best)
+  -}
 
 main :: IO ()
-main = do
-    args <- getArgs
-    let filePath = if length args == 1 then head args else error "Incorrect number of arguments."
-    game <- loadGame filePath
-    putBestMove game
+main = 
+     do  args <- getArgs
+         let (flags, inputs, errors) = getOpt Permute options args
+         putStrLn $ show (flags, inputs, errors) 
+         if Help `elem` flags 
+         then putStrLn $ usageInfo "Mancala [options] [filename] Interactive Mancala"options 
+         else 
+            do let fName = if null inputs then "games/baseGame.txt" else head inputs
+               game <- loadGame fName 
+               if null flags then putBestMove game else flagGame game flags
+
+flagGame :: Game -> [Flag] -> IO ()
+flagGame game [] = do putStr " "  
+flagGame game (f:fs) 
+   | f == NoDepth =
+                  do putBestMove game   
+                     flagGame game fs
+   | otherwise = error "incorrect flag inputed"   
+------------------------------------------------------------------------------------
+-- story 21
+data Flag = Help | NoDepth deriving (Show, Eq) 
+
+
+options :: [OptDescr Flag]
+options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit."
+          , Option ['w'] ["winner"] (NoArg NoDepth) "Print out the best move with no cut-off depth"
+          ] 
 
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
