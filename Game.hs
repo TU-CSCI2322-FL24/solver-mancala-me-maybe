@@ -133,21 +133,22 @@ prettyPrintGame (player, ((storeOne, pitsOne), (storeTwo, pitsTwo))) =
 ------------------------------------------------------------------------------------------
 -- Story 8: Game State and Winner
 
-
 hasGameEnded :: Game -> Bool
 hasGameEnded (_, ((storeOne,one), (storeTwo,two)))
-    | all (== 0) one    = True
-    | all (== 0) two    = True
-    | storeOne > ((length one) * 8) = True
-    | storeTwo > ((length two) * 8) = True 
-    | otherwise         = False
+    | all (== 0) one                    = True
+    | all (== 0) two                    = True
+    | storeOne > ((length one) * 8)     = True
+    | storeTwo > ((length two) * 8)     = True
+    | otherwise                         = False
 
 whoWon :: Game -> Maybe Winner
-whoWon game@(_, ((s1,_), (s2,_)))
-    | not (hasGameEnded game)   = Nothing
-    | s1 > s2                   = Just (Win PlayerOne)
-    | s1 < s2                   = Just (Win PlayerTwo)
-    | s1 == s2                  = Just Tie
+whoWon game@(_, ((s1,one), (s2,two)))
+    | not (hasGameEnded game)       = Nothing
+    | sc1 > sc2                     = Just (Win PlayerOne)
+    | sc1 < sc2                     = Just (Win PlayerTwo)
+    | sc1 == sc2                    = Just Tie
+    where sc1 = sum one + s1
+          sc2 = sum two + s2
 
 currGameState :: Game -> GameState
 currGameState game =
@@ -161,6 +162,7 @@ whoWillWin :: Game -> Player -> Winner
 whoWillWin game pl = 
    let aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]   
    in aux game 
+
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
@@ -265,7 +267,7 @@ canOpRepeat :: Game -> Bool
 canOpRepeat (pt, (one,two)) =
     let moves = possibleMoves (pt, (one, two))
     in foldr (\(p,state) recVal -> (p == pt) || recVal) False moves
---} 
+--}
 -------------------------------------------------------------------------------------------
 -- Story 11 & 12: Text Format & readGame (read text format)
 
@@ -277,7 +279,7 @@ readGame input =
         [_] -> error "Invalid input: 1 line provided, expected 4."
         [_, _] -> error "Invalid input: 2 lines provided, expected 4."
         [_, _, _] -> error "Invalid input: 3 lines provided, expected 4."
-        [line1, line2, line3, line4] -> 
+        [line1, line2, line3, line4] ->
             -- parse pitsTwo and pitsOne
             let pitsTwo = case traverse readMaybe (words line1) of
                     Just pits -> reverse pits
@@ -337,6 +339,15 @@ loadGame filePath = do
 
 putBestMove game = do 
     putStrLn $ show (bestMove game)
+    
+{- putBestMove :: Game -> IO ()
+putBestMove game = do
+    let best = bestMove game
+    putStrLn "Best Move:"
+    putStrLn $ showGame best
+    putStrLn "Forced Move:"
+    putStrLn $ showGame (bestMove best)
+  -}
 
 main :: IO ()
 main = 
@@ -389,11 +400,14 @@ getStones (player, (one,two)) pit =
     in if val == 0 then Nothing else Just val
 
 compareListOutcome :: Player -> [Winner] -> Winner
-compareListOutcome pl (w:ws) = 
+compareListOutcome pl (w:ws) =
    let aux [] outcome = outcome
-       aux (x:xs) outcome = aux xs (compareOutcome pl x outcome) 
-   in aux ws w 
-   
-compareOutcome :: Player -> Winner -> Winner -> Winner
-compareOutcome pl new current = if new == (Win (otherPlayer pl)) then current else if new == (Win pl) then new else if (new == (Win pl)) && (current == (Win (otherPlayer pl))) then new else current 
+       aux (x:xs) outcome = aux xs (compareOutcome pl x outcome)
+   in aux ws w
 
+compareOutcome :: Player -> Winner -> Winner -> Winner
+compareOutcome pl new current
+    | new == Win (otherPlayer pl)                               = current
+    | new == Win pl                                             = new
+    | (new == Win pl) && (current == Win (otherPlayer pl))      = new
+    | otherwise                                                 = current

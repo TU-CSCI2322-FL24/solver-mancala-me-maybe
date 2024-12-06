@@ -22,9 +22,9 @@ runOurTests verb force = do
     let tree = undefined
     let a = runGrader tree
     format <- makeFormat verb force "projectDesc.yaml"
-    runRWST a () format 
+    runRWST a () format
     return ()
 
-main :: IO() 
+main :: IO()
 main = do
     runOurTests 1 True
