@@ -19,6 +19,7 @@ type Move = (Player, Position)
 data Winner = Win Player | Tie deriving (Show,Eq)
 data GameState = Ongoing | Winner Winner deriving Show
 
+
 --setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
@@ -183,7 +184,7 @@ bestOutcome (w:ws) pl =
 --}
 
 -- original Stragety
-{-- whoWillWin :: Game -> Winner
+{-- whoWillWin :: Game -> Winner/
 whoWillWin game@(player, _) = ongoingToWinner (possibleMoves game) player
 
 
@@ -271,7 +272,7 @@ canOpRepeat (pt, (one,two)) =
 
 readGame :: String -> Game
 readGame input =
-    let linesInput = lines input
+    let linesInput = lines input 
     in case linesInput of
         [] -> error "Invalid input: 0 lines provided, expected 4."
         [_] -> error "Invalid input: 1 line provided, expected 4."
@@ -335,38 +336,72 @@ loadGame filePath = do
     contents <- readFile filePath
     return (readGame contents)
 
-putBestMove game = do 
+verbosePrint :: Player -> Winner -> String 
+verbosePrint pl outcome = "Best Outcome for " ++ (show pl) ++ " is " ++ (show outcome) 
+
+putBestMove game@(pl, _) isVerbose = do 
     putStrLn $ show (bestMove game)
+    if isVerbose 
+    then putStrLn $ verbosePrint pl (whoWillWin game pl)
+    else putStr $ ""  
 
-main :: IO ()
+putMove game@(pl, _) pos isVerbose = do
+   let gameState = fromJust (move game pos) 
+   if isVerbose 
+   then do 
+       putStrLn $ prettyPrintGame gameState
+       putStrLn $ verbosePrint pl (whoWillWin gameState pl)
+   else  putStrLn $ showGame gameState 
+
+getNumber :: Flag -> Int 
+getNumber (OutMove x) = read x   
+
+main :: IO() 
 main = 
-     do  args <- getArgs
-         let (flags, inputs, errors) = getOpt Permute options args
-         putStrLn $ show (flags, inputs, errors) 
-         if Help `elem` flags 
-         then putStrLn $ usageInfo "Mancala [options] [filename] Interactive Mancala"options 
-         else 
-            do let fName = if null inputs then "games/baseGame.txt" else head inputs
-               game <- loadGame fName 
-               if null flags then putBestMove game else flagGame game flags
+     do args <- getArgs 
+        let (flags, inputs, errors) = getOpt Permute options args 
+        putStrLn $ show (flags, inputs, errors) 
+        if Help `elem` flags
+        then putStrLn $ usageInfo "Game [options] [filename] Interactive Mancala" options
+        else
+           do let fName = if null inputs then "games/baseGame.txt" else head inputs
+              game <- loadGame fName 
+              if null flags then putBestMove game False else flagGame game flags (Verbose `elem` flags)                                
 
-flagGame :: Game -> [Flag] -> IO ()
-flagGame game [] = do putStr " "  
-flagGame game (f:fs) 
-   | f == NoDepth =
-                  do putBestMove game   
-                     flagGame game fs
+flagGame :: Game -> [Flag] -> Bool -> IO ()
+flagGame game [] isVerbose = do putStr " "  
+flagGame game (f:fs) isVerbose 
+   | f == NoDepth = do 
+                      putBestMove game isVerbose 
+                      flagGame game fs isVerbose 
+   {-| f == (Depth a) = do 
+                         putGoodMove game (getNumber f)
+                         flagGame game fs isVerbose
+   -} 
+   | (show f) == "OutMove" = do 
+                               putMove game (getNumber f) isVerbose
+                               flagGame game fs isVerbose
+   | f == Verbose = flagGame game fs isVerbose   
    | otherwise = error "incorrect flag inputed"   
 ------------------------------------------------------------------------------------
--- story 21
-data Flag = Help | NoDepth deriving (Show, Eq) 
+-- story 21 - 25
+data Flag = Help | NoDepth | Depth String | OutMove String | Verbose deriving Eq 
 
-
+instance Show Flag where
+   show Help = "Help" 
+   show NoDepth = "No Depth" 
+   show (Depth a) = "Depth" 
+   show (OutMove a) = "OutMove" 
+   show Verbose = "Best Outcome for "
+ 
 options :: [OptDescr Flag]
 options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit."
           , Option ['w'] ["winner"] (NoArg NoDepth) "Print out the best move with no cut-off depth"
+          , Option ['d'] ["depth"] (ReqArg Depth "<depth>") "Print out the best move from <depth>" 
+          , Option ['m'] ["move"] (ReqArg OutMove "<move>") "Print out the resulting board from <move> to stdout" 
+          , Option ['v'] ["verbose"] (NoArg Verbose) "Print both the move and a description of how good it is: win, lose, tie, or a rating"
           ] 
-
+ 
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
 
@@ -396,4 +431,3 @@ compareListOutcome pl (w:ws) =
    
 compareOutcome :: Player -> Winner -> Winner -> Winner
 compareOutcome pl new current = if new == (Win (otherPlayer pl)) then current else if new == (Win pl) then new else if (new == (Win pl)) && (current == (Win (otherPlayer pl))) then new else current 
-
