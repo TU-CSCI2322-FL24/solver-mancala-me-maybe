@@ -6,11 +6,13 @@ import Text.Read
 import System.Environment
 import System.Console.GetOpt
 
--- story one
+-----------------------------------------------------
+-- Story 1: Types
+
 type Position = Int
 type Stones = Int
 
-data Player = PlayerOne | PlayerTwo deriving (Show, Eq)
+data Player = PlayerOne | PlayerTwo deriving (Show, Eq, Ord)
 type Row = (Int, [Int])
 type Board  = (Row, Row)
 type Game = (Player, Board)
@@ -19,7 +21,6 @@ type Move = (Player, Position)
 data Winner = Win Player | Tie deriving (Show,Eq)
 data GameState = Ongoing | Winner Winner deriving Show
 
---setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
 
@@ -30,17 +31,10 @@ makeGame k =
 
 move :: Game -> Position -> Maybe Game
 move game@(p,board) pit = do
-                          stones <- getStones game pit
-                          Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
-{-
-    let stones = getStones game pit
-    in case stones of
-        Nothing -> Nothing 
-        Just stones -> Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
--}
-------------------------------------------------------
---move functions
+    stones <- getStones game pit
+    Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
 
+--move functions
 pickUp :: Game -> Position -> Board
 pickUp (p, ((s1,one), (s2,two))) pit =
     let (begin,(_:end)) = if p == PlayerOne then splitAt pit one else splitAt pit two
@@ -159,10 +153,8 @@ currGameState game =
 whoWillWin :: Game -> Player -> Winner
 
 -- depth first search 
-whoWillWin game pl = 
-   let aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]   
-   in aux game 
-
+whoWillWin game pl = aux game
+   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
@@ -211,14 +203,17 @@ allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g
 -------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
 
-bestMove :: Game -> Move 
-bestMove game@(pl, (one,two)) = 
-    let ((x, pos):xs) = zip (possibleMoves game) [0 ..]  
-        aux [] pl (pos, result) = (pl,pos)  
-        aux ((y, p):ys) pl (pos, result) = 
-            let newResult = whoWillWin y pl   
-            in if result == (Win pl) then (pl, pos) else if newResult == (Win pl) then (pl, p) else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (p, newResult) else aux ys pl (pos, result) 
-    in aux xs pl (pos, (whoWillWin x pl)) 
+bestMove :: Game -> Move
+bestMove game@(pl, (one,two)) =
+    let ((x, pos):xs) = zip (possibleMoves game) [0 ..]
+        aux [] pl (pos, result) = (pl,pos)
+        aux ((y, p):ys) pl (pos, result)
+            | result == (Win pl)                                            = (pl, pos)
+            | newResult == (Win pl)                                         = (pl, p)
+            | (newResult == Tie) && (result == (Win (otherPlayer pl)))      = aux ys pl (p, newResult)
+            | otherwise                                                     = aux ys pl (pos, result)
+            where newResult = whoWillWin y pl
+    in aux xs pl (pos, (whoWillWin x pl))
 
 -- Keep for Sprint 3 
 {-- bestMove :: Game -> Game
@@ -337,9 +332,9 @@ loadGame filePath = do
     contents <- readFile filePath
     return (readGame contents)
 
-putBestMove game = do 
+putBestMove game = do
     putStrLn $ show (bestMove game)
-    
+
 {- putBestMove :: Game -> IO ()
 putBestMove game = do
     let best = bestMove game
@@ -350,33 +345,60 @@ putBestMove game = do
   -}
 
 main :: IO ()
-main = 
-     do  args <- getArgs
+main = do 
+         args <- getArgs
          let (flags, inputs, errors) = getOpt Permute options args
-         putStrLn $ show (flags, inputs, errors) 
-         if Help `elem` flags 
-         then putStrLn $ usageInfo "Mancala [options] [filename] Interactive Mancala"options 
-         else 
+         putStrLn $ show (flags, inputs, errors)
+         if Help `elem` flags
+         then putStrLn $ usageInfo "Mancala [options] [filename] Interactive Mancala" options
+         else
             do let fName = if null inputs then "games/baseGame.txt" else head inputs
-               game <- loadGame fName 
+               game <- loadGame fName
                if null flags then putBestMove game else flagGame game flags
 
 flagGame :: Game -> [Flag] -> IO ()
-flagGame game [] = do putStr " "  
-flagGame game (f:fs) 
+flagGame game [] = do putStr " "
+flagGame game (f:fs)
    | f == NoDepth =
-                  do putBestMove game   
+                  do putBestMove game
                      flagGame game fs
-   | otherwise = error "incorrect flag inputed"   
+   | otherwise = error "incorrect flag inputed"
+
+-------------------------------------------------------------------------------------------
+-- Story 17: Evaluate Rating
+
+type Rating = Int
+
+rateGame :: Game -> Rating
+rateGame = undefined
+
+-------------------------------------------------------------------------------------------
+-- Story 18: Cut-Off Depth
+
+whoMightWin :: Game -> Int -> Rating
+whoMightWin game@(pl, _) depth
+    | hasGameEnded game || depth == 0       = rateGame game
+    | otherwise                             = case pl of
+        PlayerOne -> maximum [whoMightWin g (depth - 1) | g <- possibleMoves game]
+        PlayerTwo -> minimum [whoMightWin g (depth - 1) | g <- possibleMoves game]
+
+goodMove :: Game -> Int -> Move
+goodMove game@(pl, _) depth
+    | depth == 1    = bestMove game
+    | otherwise     = case pl of
+        PlayerOne -> bestMove $ snd (maximum [(whoMightWin g (depth - 1), g) | g <- possibleMoves game])
+        PlayerTwo -> bestMove $ snd (minimum [(whoMightWin g (depth - 1), g) | g <- possibleMoves game])
+
 ------------------------------------------------------------------------------------
--- story 21
-data Flag = Help | NoDepth deriving (Show, Eq) 
+-- Story 21: Flags
+
+data Flag = Help | NoDepth deriving (Show, Eq)
 
 
 options :: [OptDescr Flag]
 options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit."
           , Option ['w'] ["winner"] (NoArg NoDepth) "Print out the best move with no cut-off depth"
-          ] 
+          ]
 
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
