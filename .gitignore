@@ -4,6 +4,7 @@
 *.txt
 !demos/*.txt
 !tests/*.txt
+!games/*.txt
 
 # Executables #
 ###############
