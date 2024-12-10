@@ -29,10 +29,12 @@ makeGame k =
     let pits = [4 | _ <- [1..k]]
     in (PlayerOne,((0, pits),(0, pits)))
 
-move :: Game -> Position -> Maybe Game
-move game@(p,board) pit = do
-    stones <- getStones game pit
-    Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
+move :: Game -> Move -> Maybe Game
+move game@(p,board) (pl, pit)
+    | pl /= p       = Nothing
+    | otherwise     = do
+        stones <- getStones game pit
+        Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
 
 --move functions
 pickUp :: Game -> Position -> Board
@@ -107,10 +109,13 @@ addToStore PlayerTwo ((s1,one),(s2,two)) val pos1 pos2 =
 ------------------------------------------------------------------------------------------
 --Story 4: possibleMoves
 
-possibleMoves :: Game -> [Game]
-possibleMoves game@(_,((_,one),_)) =
+possibleMoves :: Game -> [Move]
+possibleMoves game@(pl, ((_,one),_)) =
     let len = length one - 1
-    in catMaybes [move game pos | pos <- [0..len]]
+    in [(pl, pos) | pos <- [0..len]]
+
+possibleGames :: Game -> [Game]
+possibleGames game = mapMaybe (move game) (possibleMoves game)
 
 ------------------------------------------------------------------------------------------
 -- Story 5: Pretty-print a game into a string as a Mancala board
@@ -154,7 +159,7 @@ whoWillWin :: Game -> Player -> Winner
 
 -- depth first search 
 whoWillWin game pl = aux game
-   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]
+   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleGames game)]
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
@@ -205,7 +210,7 @@ allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g
 
 bestMove :: Game -> Move
 bestMove game@(pl, (one,two)) =
-    let ((x, pos):xs) = zip (possibleMoves game) [0 ..]
+    let ((x, pos):xs) = zip (possibleGames game) [0 ..]
         aux [] pl (pos, result) = (pl,pos)
         aux ((y, p):ys) pl (pos, result)
             | result == (Win pl)                                            = (pl, pos)
@@ -383,19 +388,20 @@ emptyPits (x:xs) count =
 -------------------------------------------------------------------------------------------
 -- Story 18: Cut-Off Depth
 
+maxOrMin :: (Foldable t, Ord a) => Player -> t a -> a
+maxOrMin pl = case pl of
+    PlayerOne -> maximum
+    PlayerTwo -> minimum
+
 whoMightWin :: Game -> Int -> Rating
 whoMightWin game@(pl, _) depth
-    | hasGameEnded game || depth == 0       = rateGame game
-    | otherwise                             = case pl of
-        PlayerOne -> maximum [whoMightWin g (depth - 1) | g <- possibleMoves game]
-        PlayerTwo -> minimum [whoMightWin g (depth - 1) | g <- possibleMoves game]
+    | hasGameEnded game || depth == 0   = rateGame game
+    | otherwise                         = maxOrMin pl [whoMightWin g (depth - 1) | g <- possibleGames game]
 
-goodMove :: Game -> Int -> Move
+goodMove :: Game -> Int -> Maybe Move
 goodMove game@(pl, _) depth
-    | depth == 1    = bestMove game
-    | otherwise     = case pl of
-        PlayerOne -> bestMove $ snd (maximum [(whoMightWin g (depth - 1), g) | g <- possibleMoves game])
-        PlayerTwo -> bestMove $ snd (minimum [(whoMightWin g (depth - 1), g) | g <- possibleMoves game])
+    | hasGameEnded game || depth == 0   = Nothing
+    | otherwise                         = Just $ snd (maxOrMin pl [(whoMightWin g (depth - 1), m) | m@(pl, pos) <- possibleMoves game, let Just g = move game m])
 
 ------------------------------------------------------------------------------------
 -- Story 21: Flags
