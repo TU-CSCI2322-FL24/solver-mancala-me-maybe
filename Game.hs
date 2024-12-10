@@ -370,7 +370,15 @@ flagGame game (f:fs)
 type Rating = Int
 
 rateGame :: Game -> Rating
-rateGame = undefined
+rateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) = 
+    let result = (emptyPits pitsOne 0 `div` 2) - (emptyPits pitsTwo 0 `div` 2) + if currentPlayer == PlayerOne then 2 else -2
+    in result + x - y
+
+emptyPits :: [Int] -> Int -> Int
+emptyPits [] count = count
+emptyPits (x:xs) count =
+    if x == 0 then emptyPits xs (count + 1)
+    else emptyPits xs count
 
 -------------------------------------------------------------------------------------------
 -- Story 18: Cut-Off Depth
