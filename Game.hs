@@ -465,8 +465,36 @@ goodMove game@(pl, _) depth
     | hasGameEnded game || depth == 0   = Nothing
     | otherwise                         = Just $ snd (maxOrMin pl [(whoMightWin g (depth - 1), m) | m@(pl, pos) <- possibleMoves game, let Just g = move game m])
 
+-------------------------------------------------------------------------------------------
+-- Story 19: Lazy Story 18
+
+maxLazy :: Player -> [(Rating, Move)] -> (Rating, Move) -> (Rating, Move)
+maxLazy pl [] compX = compX
+maxLazy pl ((rx, rm):xs) (rComp, rMove)
+    | rx == 1000        = (rx, rm)
+    | rx > rComp        = maxLazy pl xs (rx, rm)
+    | otherwise         = maxLazy pl xs (rComp, rMove)
+
+minLazy :: Player -> [(Rating, Move)] -> (Rating, Move) -> (Rating, Move)
+minLazy pl [] compX = compX
+minLazy pl ((rx, rm):xs) (rComp, rMove)
+    | rx == -1000       = (rx, rm)
+    | rx < rComp        = minLazy pl xs (rx, rm)
+    | otherwise         = minLazy pl xs (rComp, rMove)
+
+maxOrMinLazy :: Player -> [(Rating, Move)] -> Maybe (Rating, Move)
+maxOrMinLazy pl [] = Nothing
+maxOrMinLazy pl (first:list) = case pl of
+    PlayerOne -> Just $ maxLazy pl list first
+    PlayerTwo -> Just $ minLazy pl list first
+
+whoMightWinEarly :: Game -> Int -> Maybe (Rating, Move)
+whoMightWinEarly game@(pl, _) depth
+    | hasGameEnded game || depth == 0   = Nothing
+    | otherwise                         = maxOrMinLazy pl (catMaybes [whoMightWinEarly g (depth - 1) | m@(pl, pos) <- possibleMoves game, let Just g = move game m])
+
 ------------------------------------------------------------------------------------
--- story 21 - 25
+-- Story 21 - 25
 
 flagGame :: Game -> [Flag] -> Bool -> IO ()
 flagGame game [] isVerbose = do putStr " "  
