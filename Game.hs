@@ -155,10 +155,11 @@ currGameState game =
 ------------------------------------------------------------------------------------------
 -- Story 9: Guess Moves
 whoWillWin :: Game -> Player -> Winner
-
--- depth first search 
-whoWillWin game pl = aux game
-   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleGames game)]
+whoWillWin game pl =
+    let status = whoWon game
+    in case status of
+        Just winner -> winner
+        Nothing -> compareListOutcome pl [whoWillWin g pl | g <- (possibleGames game)]
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
