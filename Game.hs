@@ -1,8 +1,8 @@
 module Game where
-
 import Debug.Trace
 import Data.Maybe
 import Text.Read
+import System.IO
 import System.Environment
 import System.Console.GetOpt
 
@@ -360,7 +360,60 @@ putMove game@(pl, _) pos isVerbose = do
 getNumber :: Flag -> Int 
 getNumber (OutMove x) = read x   
 
-main :: IO() 
+sortFlag :: [Flag] -> [Flag] 
+sortFlag flags = 
+    let aux [] sorted = sorted 
+        aux (f:fs) sorted = 
+           let rec [] = [f]
+               rec (s:ss) = if (f < s) then (f:s:ss) else s:(rec ss)  
+           in aux fs (rec sorted)   
+    in aux flags []  
+
+{-playGame game@(pl,_) computerThought = 
+    do putStrLn $ prettyPrintGame game
+       putStrLn $ ((show pl) ++ " Turn")
+       let nextGame = case pl of 
+                          PlayerOne -> fromJust (move game (read (getMove game) :: Int))
+                          PlayerTwo -> 
+                             let (pl, pos) = computerThought game
+                             in fromJust (move game pos)  
+       if (hasGameEnded nextGame) 
+       then 
+           do putStrLn $ (show (fromJust (whoWon nextGame))) 
+       else playGame nextGame computerThought 
+-} 
+printCurrentGame game@(pl,_) =
+   do putStrLn $ prettyPrintGame game 
+      putStrLn $ ((show pl) ++ " Turn") 
+
+playGame game@(PlayerOne, _) computerThought = 
+    do printCurrentGame game 
+       putStr $ "Please input your move: "
+       hFlush stdout
+       pit <- getLine 
+       if getStones game (read pit :: Int) == Nothing 
+       then do 
+            putStrLn $ "Invalid move try again" 
+            playGame game computerThought 
+       else 
+            let nextGame = fromJust (move game (read pit :: Int))
+            in do 
+               if hasGameEnded nextGame 
+               then do 
+                    putStrLn $ showGame nextGame
+                    putStrLn $ show (fromJust (whoWon nextGame))
+               else playGame nextGame computerThought 
+
+
+playGame game@(PlayerTwo, _) computerThought = 
+    do printCurrentGame game
+       let nextGame = fromJust (move game (snd (computerThought game))) 
+       if hasGameEnded nextGame 
+       then do 
+            putStrLn $ showGame nextGame 
+            putStrLn $ show (fromJust (whoWon nextGame)) 
+       else playGame game computerThought 
+
 main = 
      do args <- getArgs 
         let (flags, inputs, errors) = getOpt Permute options args 
@@ -369,27 +422,37 @@ main =
         then putStrLn $ usageInfo "Game [options] [filename] Interactive Mancala" options
         else
            do let fName = if null inputs then "games/baseGame.txt" else head inputs
+                  sortedFlags = sortFlag flags
               game <- loadGame fName 
-              if null flags then putBestMove game False else flagGame game flags (Verbose `elem` flags)                                
+              traceShow sortedFlags $ if null sortedFlags then putBestMove game False else flagGame game sortedFlags (Verbose `elem` flags)                                
 
 flagGame :: Game -> [Flag] -> Bool -> IO ()
 flagGame game [] isVerbose = do putStr " "  
 flagGame game (f:fs) isVerbose 
    | f == NoDepth = do 
-                      putBestMove game isVerbose 
-                      flagGame game fs isVerbose 
+                      if Interactive `elem` fs 
+                      then do 
+                           playGame game (bestMove)
+                      else do
+                             putBestMove game isVerbose 
+                             flagGame game fs isVerbose 
    {-| f == (Depth a) = do 
                          putGoodMove game (getNumber f)
-                         flagGame game fs isVerbose
+                         if Interactive `elem` fs 
+                         then playGame game a
+                         else flagGame game fs isVerbose
    -} 
    | (show f) == "OutMove" = do 
                                putMove game (getNumber f) isVerbose
                                flagGame game fs isVerbose
-   | f == Verbose = flagGame game fs isVerbose   
-   | otherwise = error "incorrect flag inputed"   
+   | f == Verbose = flagGame game fs isVerbose
+   | f == Interactive = do
+                          playGame game (bestMove)   
+   | otherwise = error "incorrect flag inputed"
+   
 ------------------------------------------------------------------------------------
 -- story 21 - 25
-data Flag = Help | NoDepth | Depth String | OutMove String | Verbose deriving Eq 
+data Flag = Help | NoDepth | Depth String | OutMove String | Verbose | Interactive deriving Eq 
 
 instance Show Flag where
    show Help = "Help" 
@@ -397,13 +460,25 @@ instance Show Flag where
    show (Depth a) = "Depth" 
    show (OutMove a) = "OutMove" 
    show Verbose = "Best Outcome for "
- 
+   show Interactive = "Interactive"
+
+instance Ord Flag where
+   compare x y = compare (rnk x) (rnk y) 
+       where 
+           rnk Help = 1 
+           rnk NoDepth = 2
+           rnk (Depth a) = 3
+           rnk (OutMove a) = 4
+           rnk Verbose = 5
+           rnk Interactive = 6       
+
 options :: [OptDescr Flag]
 options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit."
           , Option ['w'] ["winner"] (NoArg NoDepth) "Print out the best move with no cut-off depth"
           , Option ['d'] ["depth"] (ReqArg Depth "<depth>") "Print out the best move from <depth>" 
           , Option ['m'] ["move"] (ReqArg OutMove "<move>") "Print out the resulting board from <move> to stdout" 
           , Option ['v'] ["verbose"] (NoArg Verbose) "Print both the move and a description of how good it is: win, lose, tie, or a rating"
+          , Option ['i'] ["interactive"] (NoArg Interactive) "Start a new game and plays against the computer. Compatible with -d flag."
           ] 
  
 -------------------------------------------------------------------------------------------
