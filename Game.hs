@@ -156,11 +156,13 @@ currGameState game =
 ------------------------------------------------------------------------------------------
 -- Story 9: Guess Moves
 whoWillWin :: Game -> Player -> Winner
+whoWillWin game pl =
+    let status = whoWon game
+    in case status of
+        Just winner -> winner
+        Nothing -> compareListOutcome pl [whoWillWin g pl | g <- (possibleGames game)]
 
--- depth first search 
-whoWillWin game pl = aux game
-   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleGames game)]
--------------------------------------------------------------------------------------------
+---------------------------------------------------------------------
 -- Story 10: Best Move 
 
 bestMove :: Game -> Maybe Move 
@@ -342,8 +344,14 @@ main =
 
 type Rating = Int
 
-rateGame :: Game -> Rating
-rateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) = 
+rateGame :: Game -> Int
+rateGame game
+    | Just (Win PlayerOne) <- whoWon game = 1000 -- If PlayerOne has won
+    | Just (Win PlayerTwo) <- whoWon game = -1000 -- If PlayerTwo has won
+    | otherwise = evaluateGame game -- Fallback to your evaluation logic
+
+evaluateGame :: Game -> Rating
+evaluateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) =
     let result = (emptyPits pitsOne 0 `div` 2) - (emptyPits pitsTwo 0 `div` 2) + if currentPlayer == PlayerOne then 2 else -2
     in result + x - y
 
@@ -371,8 +379,36 @@ goodMove game@(pl, _) depth
     | hasGameEnded game || depth == 0   = Nothing
     | otherwise                         = Just $ snd (maxOrMin pl [(whoMightWin (fromJust g) (depth - 1), m) | m@(pl, pos) <- possibleMoves game, let g = move game m, isJust g])
 
+-------------------------------------------------------------------------------------------
+-- Story 19: Lazy Story 18
+
+maxLazy :: Player -> [(Rating, Move)] -> (Rating, Move) -> (Rating, Move)
+maxLazy pl [] compX = compX
+maxLazy pl ((rx, rm):xs) (rComp, rMove)
+    | rx == 1000        = (rx, rm)
+    | rx > rComp        = maxLazy pl xs (rx, rm)
+    | otherwise         = maxLazy pl xs (rComp, rMove)
+
+minLazy :: Player -> [(Rating, Move)] -> (Rating, Move) -> (Rating, Move)
+minLazy pl [] compX = compX
+minLazy pl ((rx, rm):xs) (rComp, rMove)
+    | rx == -1000       = (rx, rm)
+    | rx < rComp        = minLazy pl xs (rx, rm)
+    | otherwise         = minLazy pl xs (rComp, rMove)
+
+maxOrMinLazy :: Player -> [(Rating, Move)] -> Maybe (Rating, Move)
+maxOrMinLazy pl [] = Nothing
+maxOrMinLazy pl (first:list) = case pl of
+    PlayerOne -> Just $ maxLazy pl list first
+    PlayerTwo -> Just $ minLazy pl list first
+
+whoMightWinEarly :: Game -> Int -> Maybe (Rating, Move)
+whoMightWinEarly game@(pl, _) depth
+    | hasGameEnded game || depth == 0   = Nothing
+    | otherwise                         = maxOrMinLazy pl (catMaybes [whoMightWinEarly g (depth - 1) | m@(pl, pos) <- possibleMoves game, let Just g = move game m])
+
 ------------------------------------------------------------------------------------
--- story 21 - 25
+-- Story 21 - 25
 
 flagGame :: Game -> [Flag] -> Bool -> IO ()
 flagGame game [] isVerbose = do putStr " "  
