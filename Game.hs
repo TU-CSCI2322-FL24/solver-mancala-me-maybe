@@ -207,7 +207,7 @@ allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g
 -------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
 
-bestMove :: Game -> Move
+bestMove :: Game -> Maybe Move 
 bestMove game@(pl, (one,two)) =
     let ((x, pos):xs) = zip (possibleGames game) [0 ..]
         aux [] pl (pos, result) = (pl,pos)
@@ -217,7 +217,7 @@ bestMove game@(pl, (one,two)) =
             | (newResult == Tie) && (result == (Win (otherPlayer pl)))      = aux ys pl (p, newResult)
             | otherwise                                                     = aux ys pl (pos, result)
             where newResult = whoWillWin y pl
-    in aux xs pl (pos, (whoWillWin x pl))
+    in if hasGameEnded game then Nothing else Just (aux xs pl (pos, (whoWillWin x pl)))
 
 -- Keep for Sprint 3 
 {-- bestMove :: Game -> Game
@@ -348,7 +348,7 @@ putBestMove game@(pl, _) isVerbose = do
 
 putMove :: Game -> Int -> Bool -> IO ()
 putMove game@(pl, _) pos isVerbose = do
-   let gameState = fromJust (move game pos) 
+   let gameState = fromJust (move game (pl, pos)) 
    if isVerbose 
    then do 
        putStrLn $ prettyPrintGame gameState
@@ -367,24 +367,15 @@ sortFlag flags =
            in aux fs (rec sorted)   
     in aux flags []  
 
-{-playGame game@(pl,_) computerThought = 
-    do putStrLn $ prettyPrintGame game
-       putStrLn $ ((show pl) ++ " Turn")
-       let nextGame = case pl of 
-                          PlayerOne -> fromJust (move game (read (getMove game) :: Int))
-                          PlayerTwo -> 
-                             let (pl, pos) = computerThought game
-                             in fromJust (move game pos)  
-       if (hasGameEnded nextGame) 
-       then 
-           do putStrLn $ (show (fromJust (whoWon nextGame))) 
-       else playGame nextGame computerThought 
--} 
 printCurrentGame game@(pl,_) =
    do putStrLn $ prettyPrintGame game 
       putStrLn $ ((show pl) ++ " Turn") 
 
-playGame game@(PlayerOne, _) computerThought = 
+computerMove :: Game -> Int -> Maybe Move 
+computerMove game depth = if depth == 0 then bestMove game else goodMove game depth
+
+playGame :: Game -> Int -> IO () 
+playGame game@(PlayerOne, _) depth = 
     do printCurrentGame game 
        putStr $ "Please input your move: "
        hFlush stdout
@@ -392,26 +383,33 @@ playGame game@(PlayerOne, _) computerThought =
        if getStones game (read pit :: Int) == Nothing 
        then do 
             putStrLn $ "Invalid move try again" 
-            playGame game computerThought 
+            playGame game depth 
        else 
-            let nextGame = fromJust (move game (read pit :: Int))
+            let nextGame = fromJust (move game (PlayerOne, (read pit :: Int)))
             in do 
                if hasGameEnded nextGame 
                then do 
                     putStrLn $ showGame nextGame
                     putStrLn $ show (fromJust (whoWon nextGame))
-               else playGame nextGame computerThought 
+               else playGame nextGame depth 
 
 
-playGame game@(PlayerTwo, _) computerThought = 
+playGame game@(PlayerTwo, _) depth = 
     do printCurrentGame game
-       let nextGame = fromJust (move game (snd (computerThought game))) 
-       if hasGameEnded nextGame 
-       then do 
-            putStrLn $ showGame nextGame 
-            putStrLn $ show (fromJust (whoWon nextGame)) 
-       else playGame game computerThought 
-
+    let case (computerMove game depth) of
+           Nothing -> do
+                      putStrLn $ showGame game
+                      putStrLn $ show (fromJust (whoWon game))
+           Just (pl, pos) -> case (move game (pl, pos)) of 
+                                Nothing -> do 
+                                           putStrLn $ showGame game
+                                           putStrLn $ show (fromJust (whoWon game))
+                                Just nGame -> case (whoWon nGame) of 
+                                                 Just result -> do 
+                                                                putStrLn $ showGame nGame 
+                                                                putStrLn $ show result 
+                                                 Nothing -> playGame nGame depth
+     
 main = 
      do args <- getArgs 
         let (flags, inputs, errors) = getOpt Permute options args 
@@ -471,12 +469,11 @@ flagGame game (f:fs) isVerbose
                       else do
                              putBestMove game isVerbose 
                              flagGame game fs isVerbose 
-   {-| f == (Depth a) = do 
-                         putGoodMove game (getNumber f)
-                         if Interactive `elem` fs 
-                         then playGame game a
-                         else flagGame game fs isVerbose
-   -} 
+   | (show f) == "Depth" = do 
+                       if Interactive `elem` fs 
+                       then playGame game (getNumber f) 
+                       else flagGame game fs isVerbose
+    
    | (show f) == "OutMove" = do 
                                putMove game (getNumber f) isVerbose
                                flagGame game fs isVerbose
