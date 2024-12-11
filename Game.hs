@@ -430,8 +430,14 @@ main =
 
 type Rating = Int
 
-rateGame :: Game -> Rating
-rateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) = 
+rateGame :: Game -> Int
+rateGame game
+    | Just (Win PlayerOne) <- whoWon game = 1000 -- If PlayerOne has won
+    | Just (Win PlayerTwo) <- whoWon game = -1000 -- If PlayerTwo has won
+    | otherwise = evaluateGame game -- Fallback to your evaluation logic
+
+evaluateGame :: Game -> Rating
+evaluateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) =
     let result = (emptyPits pitsOne 0 `div` 2) - (emptyPits pitsTwo 0 `div` 2) + if currentPlayer == PlayerOne then 2 else -2
     in result + x - y
 
