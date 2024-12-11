@@ -6,11 +6,13 @@ import System.IO
 import System.Environment
 import System.Console.GetOpt
 
--- story one
+-----------------------------------------------------
+-- Story 1: Types
+
 type Position = Int
 type Stones = Int
 
-data Player = PlayerOne | PlayerTwo deriving (Show, Eq)
+data Player = PlayerOne | PlayerTwo deriving (Show, Eq, Ord)
 type Row = (Int, [Int])
 type Board  = (Row, Row)
 type Game = (Player, Board)
@@ -18,9 +20,6 @@ type Move = (Player, Position)
 
 data Winner = Win Player | Tie deriving (Show,Eq)
 data GameState = Ongoing | Winner Winner deriving Show
-
-
---setup
 -----------------------------------------------------
 -- Story 1 & 3: Game and Move
 
@@ -29,19 +28,14 @@ makeGame k =
     let pits = [4 | _ <- [1..k]]
     in (PlayerOne,((0, pits),(0, pits)))
 
-move :: Game -> Position -> Maybe Game
-move game@(p,board) pit = do
-                          stones <- getStones game pit
-                          Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
-{-
-    let stones = getStones game pit
-    in case stones of
-        Nothing -> Nothing 
-        Just stones -> Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
--}
-------------------------------------------------------
---move functions
+move :: Game -> Move -> Maybe Game
+move game@(p,board) (pl, pit)
+    | pl /= p       = Nothing
+    | otherwise     = do
+        stones <- getStones game pit
+        Just (movePieces ((p, pickUp game pit), stones) p (pit + 1))
 
+--move functions
 pickUp :: Game -> Position -> Board
 pickUp (p, ((s1,one), (s2,two))) pit =
     let (begin,(_:end)) = if p == PlayerOne then splitAt pit one else splitAt pit two
@@ -114,10 +108,13 @@ addToStore PlayerTwo ((s1,one),(s2,two)) val pos1 pos2 =
 ------------------------------------------------------------------------------------------
 --Story 4: possibleMoves
 
-possibleMoves :: Game -> [Game]
-possibleMoves game@(_,((_,one),_)) =
+possibleMoves :: Game -> [Move]
+possibleMoves game@(pl, ((_,one),_)) =
     let len = length one - 1
-    in catMaybes [move game pos | pos <- [0..len]]
+    in [(pl, pos) | pos <- [0..len]]
+
+possibleGames :: Game -> [Game]
+possibleGames game = mapMaybe (move game) (possibleMoves game)
 
 ------------------------------------------------------------------------------------------
 -- Story 5: Pretty-print a game into a string as a Mancala board
@@ -160,10 +157,8 @@ currGameState game =
 whoWillWin :: Game -> Player -> Winner
 
 -- depth first search 
-whoWillWin game pl = 
-   let aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleMoves game)]   
-   in aux game 
-
+whoWillWin game pl = aux game
+   where aux game = if (hasGameEnded game) then fromJust (whoWon game) else compareListOutcome pl [aux g | g <- (possibleGames game)]
 
 -- breadth first search
 {-- whoWillWin game pl = findOutcome (possibleMoves game) pl (fromMaybe (Win (otherPlayer pl)) (whoWon game)) 
@@ -212,14 +207,17 @@ allMove (g:gs) = traceShow ((show g) ++ " and " ++ (show gs)) $ (possibleMoves g
 -------------------------------------------------------------------------------------------
 -- Story 10: Best Move 
 
-bestMove :: Game -> Move 
-bestMove game@(pl, (one,two)) = 
-    let ((x, pos):xs) = zip (possibleMoves game) [0 ..]  
-        aux [] pl (pos, result) = (pl,pos)  
-        aux ((y, p):ys) pl (pos, result) = 
-            let newResult = whoWillWin y pl   
-            in if result == (Win pl) then (pl, pos) else if newResult == (Win pl) then (pl, p) else if (newResult == Tie) && (result == (Win (otherPlayer pl))) then aux ys pl (p, newResult) else aux ys pl (pos, result) 
-    in aux xs pl (pos, (whoWillWin x pl)) 
+bestMove :: Game -> Move
+bestMove game@(pl, (one,two)) =
+    let ((x, pos):xs) = zip (possibleGames game) [0 ..]
+        aux [] pl (pos, result) = (pl,pos)
+        aux ((y, p):ys) pl (pos, result)
+            | result == (Win pl)                                            = (pl, pos)
+            | newResult == (Win pl)                                         = (pl, p)
+            | (newResult == Tie) && (result == (Win (otherPlayer pl)))      = aux ys pl (p, newResult)
+            | otherwise                                                     = aux ys pl (pos, result)
+            where newResult = whoWillWin y pl
+    in aux xs pl (pos, (whoWillWin x pl))
 
 -- Keep for Sprint 3 
 {-- bestMove :: Game -> Game
@@ -424,7 +422,44 @@ main =
            do let fName = if null inputs then "games/baseGame.txt" else head inputs
                   sortedFlags = sortFlag flags
               game <- loadGame fName 
-              traceShow sortedFlags $ if null sortedFlags then putBestMove game False else flagGame game sortedFlags (Verbose `elem` flags)                                
+              traceShow sortedFlags $ if null sortedFlags then putBestMove game False else flagGame game sortedFlags (Verbose `elem` flags)                                 
+
+-------------------------------------------------------------------------------------------
+-- Story 17: Evaluate Rating
+
+type Rating = Int
+
+rateGame :: Game -> Rating
+rateGame (currentPlayer, ((x, pitsOne), (y, pitsTwo))) = 
+    let result = (emptyPits pitsOne 0 `div` 2) - (emptyPits pitsTwo 0 `div` 2) + if currentPlayer == PlayerOne then 2 else -2
+    in result + x - y
+
+emptyPits :: [Int] -> Int -> Int
+emptyPits [] count = count
+emptyPits (x:xs) count =
+    if x == 0 then emptyPits xs (count + 1)
+    else emptyPits xs count
+
+-------------------------------------------------------------------------------------------
+-- Story 18: Cut-Off Depth
+
+maxOrMin :: (Foldable t, Ord a) => Player -> t a -> a
+maxOrMin pl = case pl of
+    PlayerOne -> maximum
+    PlayerTwo -> minimum
+
+whoMightWin :: Game -> Int -> Rating
+whoMightWin game@(pl, _) depth
+    | hasGameEnded game || depth == 0   = rateGame game
+    | otherwise                         = maxOrMin pl [whoMightWin g (depth - 1) | g <- possibleGames game]
+
+goodMove :: Game -> Int -> Maybe Move
+goodMove game@(pl, _) depth
+    | hasGameEnded game || depth == 0   = Nothing
+    | otherwise                         = Just $ snd (maxOrMin pl [(whoMightWin g (depth - 1), m) | m@(pl, pos) <- possibleMoves game, let Just g = move game m])
+
+------------------------------------------------------------------------------------
+-- story 21 - 25
 
 flagGame :: Game -> [Flag] -> Bool -> IO ()
 flagGame game [] isVerbose = do putStr " "  
@@ -450,8 +485,7 @@ flagGame game (f:fs) isVerbose
                           playGame game (bestMove)   
    | otherwise = error "incorrect flag inputed"
    
-------------------------------------------------------------------------------------
--- story 21 - 25
+
 data Flag = Help | NoDepth | Depth String | OutMove String | Verbose | Interactive deriving Eq 
 
 instance Show Flag where
@@ -470,7 +504,7 @@ instance Ord Flag where
            rnk (Depth a) = 3
            rnk (OutMove a) = 4
            rnk Verbose = 5
-           rnk Interactive = 6       
+           rnk Interactive = 6      
 
 options :: [OptDescr Flag]
 options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit."
@@ -479,8 +513,7 @@ options = [ Option ['h'] ["help"] (NoArg Help) "Print usage information and exit
           , Option ['m'] ["move"] (ReqArg OutMove "<move>") "Print out the resulting board from <move> to stdout" 
           , Option ['v'] ["verbose"] (NoArg Verbose) "Print both the move and a description of how good it is: win, lose, tie, or a rating"
           , Option ['i'] ["interactive"] (NoArg Interactive) "Start a new game and plays against the computer. Compatible with -d flag."
-          ] 
- 
+          ]
 -------------------------------------------------------------------------------------------
 -- Universal Helper Functions
 
