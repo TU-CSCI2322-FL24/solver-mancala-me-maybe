@@ -1,0 +1,4 @@
+0 1 0 9 0 2
+P1: 4 P2: 15
+0 1 0 4 9 3
+Player: PlayerOne
